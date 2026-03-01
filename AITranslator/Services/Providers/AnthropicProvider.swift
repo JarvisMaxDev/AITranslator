@@ -35,6 +35,8 @@ final class AnthropicProvider: AIProvider {
         // Set auth header based on method
         if let tokens = keychain.getOAuthTokens(forProvider: config.id) {
             urlRequest.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
+            // OAuth requires beta header to enable OAuth token support in Messages API
+            urlRequest.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         } else if let apiKey = keychain.getAPIKey(forProvider: config.id) {
             urlRequest.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         } else {

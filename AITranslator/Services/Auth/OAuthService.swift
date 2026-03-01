@@ -100,7 +100,7 @@ final class OAuthService: ObservableObject {
 
     /// Claude Code OAuth constants (from Claude Code CLI source)
     private let claudeAuthURL = "https://claude.ai/oauth/authorize"
-    private let claudeTokenURL = "https://claude.ai/v1/oauth/token"
+    private let claudeTokenURL = "https://platform.claude.com/v1/oauth/token"
     private let claudeClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
     private let claudeScopes = "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers"
 
@@ -163,6 +163,7 @@ final class OAuthService: ObservableObject {
                 code: code,
                 codeVerifier: codeVerifier,
                 redirectURI: redirectURI,
+                state: state,
                 providerId: providerId
             )
             return success
@@ -180,10 +181,13 @@ final class OAuthService: ObservableObject {
     }
 
     /// Exchange authorization code for tokens using Claude's token endpoint
+    /// Body format: JSON with {grant_type, code, redirect_uri, client_id, code_verifier, state}
+    /// Verified via curl against platform.claude.com/v1/oauth/token
     private func exchangeAnthropicCode(
         code: String,
         codeVerifier: String,
         redirectURI: String,
+        state: String,
         providerId: String
     ) async -> Bool {
         guard let url = URL(string: claudeTokenURL) else {
@@ -201,7 +205,8 @@ final class OAuthService: ObservableObject {
             "code": code,
             "redirect_uri": redirectURI,
             "client_id": claudeClientId,
-            "code_verifier": codeVerifier
+            "code_verifier": codeVerifier,
+            "state": state
         ]
 
         do {
