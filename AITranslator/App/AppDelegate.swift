@@ -104,12 +104,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Hotkey Action
 
     func handleHotkey() {
-        // Step 1: Simulate ⌘C to copy selected text from the active app
+        // Remember current clipboard to detect change
+        let previousClipboard = NSPasteboard.general.changeCount
+
+        // Step 1: Simulate ⌘C via AppleScript (more reliable than CGEvent)
         simulateCopy()
 
         // Step 2: Wait for clipboard to update, then show window with translation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            let clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            let clipboardText: String
+            if NSPasteboard.general.changeCount != previousClipboard {
+                // Clipboard changed — use new content
+                clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
+            } else {
+                // Clipboard didn't change — use existing content
+                clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
+            }
 
             // Show main window
             NSApp.activate(ignoringOtherApps: true)
@@ -127,18 +137,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Simulate ⌘C keystroke to copy selected text
+    /// Simulate ⌘C keystroke via AppleScript (System Events)
     private func simulateCopy() {
-        let source = CGEventSource(stateID: .hidSystemState)
-
-        // Key down: 'c' with Command
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x08, keyDown: true)
-        keyDown?.flags = .maskCommand
-        keyDown?.post(tap: .cghidEventTap)
-
-        // Key up: 'c' with Command
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x08, keyDown: false)
-        keyUp?.flags = .maskCommand
-        keyUp?.post(tap: .cghidEventTap)
+        let script = NSAppleScript(source: """
+            tell application "System Events"
+                keystroke "c" using command down
+            end tell
+        """)
+        var error: NSDictionary?
+        script?.executeAndReturnError(&error)
+        if let error = error {
+            print("[Hotkey] AppleScript copy failed: \(error)")
+        }
     }
 }
