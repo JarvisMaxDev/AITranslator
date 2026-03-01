@@ -26,8 +26,16 @@ final class SettingsViewModel: ObservableObject {
         let oauthTokens = keychain.getOAuthTokens(forProvider: id)
         let apiKey = keychain.getAPIKey(forProvider: id)
 
-        // Need at least one auth method, otherwise use hardcoded fallback
-        guard oauthTokens != nil || apiKey != nil else {
+        // Providers with dynamic model lists need auth first
+        switch config.type {
+        case .openai, .anthropic:
+            guard oauthTokens != nil || apiKey != nil else {
+                // Not authenticated yet — no models to show
+                fetchedModels[id] = []
+                return
+            }
+        case .qwen, .gemini:
+            // These use hardcoded lists — no API needed
             fetchedModels[id] = config.type.availableModels
             return
         }
@@ -37,13 +45,8 @@ final class SettingsViewModel: ObservableObject {
             case .anthropic:
                 if let tokens = oauthTokens {
                     let models = await ModelService.shared.fetchAnthropicModels(token: tokens.accessToken)
-                    if !models.isEmpty {
-                        fetchedModels[id] = models
-                    } else {
-                        fetchedModels[id] = config.type.availableModels
-                    }
-                } else {
-                    fetchedModels[id] = config.type.availableModels
+                    fetchedModels[id] = models
+                    AppLogger.info("Models", "Loaded \(models.count) Anthropic models")
                 }
             case .openai:
                 let models = await ModelService.shared.fetchOpenAIModels(
@@ -51,25 +54,28 @@ final class SettingsViewModel: ObservableObject {
                     apiKey: apiKey,
                     baseURL: config.baseURL
                 )
-                if !models.isEmpty {
-                    fetchedModels[id] = models
-                } else {
-                    fetchedModels[id] = config.type.availableModels
-                }
+                fetchedModels[id] = models
+                AppLogger.info("Models", "Loaded \(models.count) OpenAI models")
             case .qwen, .gemini:
-                // Use hardcoded model lists (no /v1/models API available)
-                fetchedModels[id] = config.type.availableModels
+                break // handled above
             }
         }
     }
 
-    /// Get models for a provider (fetched or fallback to hardcoded)
+    /// Get models for a provider (fetched dynamically or hardcoded for some providers)
     func modelsForProvider(_ id: String) -> [(id: String, name: String)] {
-        if let fetched = fetchedModels[id], !fetched.isEmpty {
+        if let fetched = fetchedModels[id] {
             return fetched
         }
+        // Only use hardcoded for providers without dynamic model API
         guard let config = providerConfigs.first(where: { $0.id == id }) else { return [] }
-        return config.type.availableModels
+        switch config.type {
+        case .qwen, .gemini:
+            return config.type.availableModels
+        case .openai, .anthropic:
+            // Dynamic models — empty until authenticated and fetched
+            return []
+        }
     }
 
     // MARK: - Provider Management
@@ -154,6 +160,8 @@ final class SettingsViewModel: ObservableObject {
                     providerConfigs[index].isAuthenticated = true
                     providerConfigs[index].authMethod = .oauth
                     saveConfigs()
+                    // Fetch dynamic models now that we have credentials
+                    fetchModels(forProvider: id)
                 }
             } else {
                 authError = oauthService.authError
@@ -172,6 +180,8 @@ final class SettingsViewModel: ObservableObject {
                 providerConfigs[index].isAuthenticated = true
                 providerConfigs[index].authMethod = .apiKey
                 saveConfigs()
+                // Fetch dynamic models now that we have credentials
+                fetchModels(forProvider: id)
             }
         } catch {
             print("Failed to save API key: \(error)")
