@@ -6,11 +6,10 @@ import Carbon.HIToolbox
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
-    private var popupWindow: NSWindow?
-    private var popupHostingController: NSHostingController<AnyView>?
     private var hotKeyRef: EventHotKeyRef?
-    /// Shared SettingsViewModel — injected from AITranslatorApp after launch
+    /// Shared ViewModels — injected from AITranslatorApp
     var settingsViewModel: SettingsViewModel?
+    var translatorViewModel: TranslatorViewModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
@@ -65,12 +64,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Global Hotkey (⌘⇧C via Carbon API)
 
     private func setupGlobalHotkey() {
-        // Register ⌘⇧C as global hotkey using Carbon API
-        // This works WITHOUT Accessibility permissions!
         let hotKeyID = EventHotKeyID(signature: OSType(0x5452_4E53), // "TRNS"
                                       id: 1)
 
-        // Install handler for hotkey events
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                       eventKind: UInt32(kEventHotKeyPressed))
 
@@ -83,14 +79,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let userData = userData else { return OSStatus(eventNotHandledErr) }
                 let delegate = userData.assumingMemoryBound(to: AppDelegate.self).pointee
                 DispatchQueue.main.async {
-                    delegate.showPopupTranslator()
+                    delegate.handleHotkey()
                 }
                 return noErr
             },
             1, &eventType, handlerPtr, nil
         )
 
-        // keyCode 8 = 'c', cmdKey | shiftKey modifiers
         let modifiers = UInt32(cmdKey | shiftKey)
         let keyCode = UInt32(kVK_ANSI_C)
 
@@ -100,59 +95,50 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if status == noErr {
             hotKeyRef = ref
-            print("[Hotkey] ⌘⇧C registered successfully (no Accessibility needed)")
+            print("[Hotkey] ⌘⇧C registered successfully")
         } else {
             print("[Hotkey] Failed to register ⌘⇧C hotkey: \(status)")
         }
     }
 
-    // MARK: - Popup Translator
+    // MARK: - Hotkey Action
 
-    func showPopupTranslator() {
-        // Grab clipboard text — user likely copied before pressing hotkey
-        let clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
+    func handleHotkey() {
+        // Step 1: Simulate ⌘C to copy selected text from the active app
+        simulateCopy()
 
-        if let existing = popupWindow, existing.isVisible {
-            existing.close()
-        }
+        // Step 2: Wait for clipboard to update, then show window with translation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            let clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
 
-        let settingsVM = settingsViewModel ?? SettingsViewModel()
-        let translatorVM = TranslatorViewModel(settingsViewModel: settingsVM)
-        translatorVM.sourceText = clipboardText
+            // Show main window
+            NSApp.activate(ignoringOtherApps: true)
+            if let window = NSApp.windows.first(where: { $0.title.contains("Translator") }) {
+                window.makeKeyAndOrderFront(nil)
+            }
 
-        let popupView = AnyView(
-            PopupTranslatorView()
-                .environmentObject(translatorVM)
-                .environmentObject(settingsVM)
-        )
-
-        let controller = NSHostingController(rootView: popupView)
-        let window = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 550, height: 380),
-            styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        window.contentViewController = controller
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.isMovableByWindowBackground = true
-        window.level = .floating
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = true
-        window.center()
-
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-
-        popupWindow = window
-        popupHostingController = controller
-
-        if !clipboardText.isEmpty {
-            Task {
-                await translatorVM.translate()
+            // Set clipboard text and auto-translate
+            if let vm = self?.translatorViewModel, !clipboardText.isEmpty {
+                vm.sourceText = clipboardText
+                Task {
+                    await vm.translate()
+                }
             }
         }
+    }
+
+    /// Simulate ⌘C keystroke to copy selected text
+    private func simulateCopy() {
+        let source = CGEventSource(stateID: .hidSystemState)
+
+        // Key down: 'c' with Command
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x08, keyDown: true)
+        keyDown?.flags = .maskCommand
+        keyDown?.post(tap: .cghidEventTap)
+
+        // Key up: 'c' with Command
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x08, keyDown: false)
+        keyUp?.flags = .maskCommand
+        keyUp?.post(tap: .cghidEventTap)
     }
 }
