@@ -125,7 +125,9 @@ final class SettingsViewModel: ObservableObject {
                 }
             case .anthropic:
                 success = await oauthService.startAnthropicOAuth(providerId: id)
-            case .openai, .gemini:
+            case .openai:
+                success = await oauthService.startOpenAIOAuth(providerId: id)
+            case .gemini:
                 // API key only — no OAuth flow needed
                 break
             }

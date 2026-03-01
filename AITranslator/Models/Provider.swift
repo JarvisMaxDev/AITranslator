@@ -69,7 +69,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .qwen: return true
         case .anthropic: return true
-        case .openai: return false
+        case .openai: return true
         case .gemini: return false
         }
     }

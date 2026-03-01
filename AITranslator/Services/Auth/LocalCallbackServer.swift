@@ -14,8 +14,8 @@ final class LocalCallbackServer {
         let error: String?
     }
 
-    /// Start listening on a random available port
-    func start() async throws -> UInt16 {
+    /// Start listening on a specific or random available port
+    func start(preferredPort: UInt16 = 0) async throws -> UInt16 {
         serverSocket = socket(AF_INET, SOCK_STREAM, 0)
         guard serverSocket >= 0 else {
             throw OAuthError.serverStartFailed("Failed to create socket")
@@ -28,7 +28,7 @@ final class LocalCallbackServer {
         // Bind to any available port (port 0 = OS picks a free port)
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = 0 // OS assigns port
+        addr.sin_port = preferredPort.bigEndian // 0 = OS assigns port
         addr.sin_addr.s_addr = inet_addr("127.0.0.1")
 
         let bindResult = withUnsafePointer(to: &addr) { ptr in

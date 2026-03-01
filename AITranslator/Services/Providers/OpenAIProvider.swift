@@ -1,14 +1,19 @@
 import Foundation
 
-/// OpenAI GPT provider using Chat Completions API
-/// API key auth only, standard OpenAI endpoint
+/// OpenAI provider supporting two auth methods:
+/// - OAuth via ChatGPT subscription → uses Codex Responses API (chatgpt.com/backend-api)
+/// - API key → uses standard Chat Completions API (api.openai.com/v1)
 final class OpenAIProvider: AIProvider {
     let id: String
     let type: ProviderType = .openai
     private let config: ProviderConfig
     private let keychain = KeychainService.shared
 
+    /// Codex Responses API endpoint (used with OAuth / ChatGPT subscription)
+    private let codexBaseURL = "https://chatgpt.com/backend-api"
+
     var isAuthenticated: Bool {
+        keychain.getOAuthTokens(forProvider: config.id) != nil ||
         keychain.getAPIKey(forProvider: config.id) != nil
     }
 
@@ -18,14 +23,124 @@ final class OpenAIProvider: AIProvider {
     }
 
     func authenticate() async throws {
-        // API key auth is handled via settings
+        // OAuth and API key auth handled via settings
     }
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResponse {
-        guard let apiKey = keychain.getAPIKey(forProvider: config.id) else {
+        // Choose path based on auth method
+        if let tokens = keychain.getOAuthTokens(forProvider: config.id) {
+            return try await translateViaCodex(request, tokens: tokens)
+        } else if let apiKey = keychain.getAPIKey(forProvider: config.id) {
+            return try await translateViaAPI(request, apiKey: apiKey)
+        } else {
             throw AIProviderError.notAuthenticated
         }
+    }
 
+    // MARK: - OAuth path: Codex Responses API (ChatGPT subscription)
+
+    private func translateViaCodex(_ request: TranslationRequest, tokens: OAuthTokens) async throws -> TranslationResponse {
+        var currentTokens = tokens
+
+        // Auto-refresh if expired
+        if currentTokens.isExpired {
+            do {
+                AppLogger.info("OpenAI", "Token expired, refreshing...")
+                currentTokens = try await OAuthService.shared.refreshOpenAIToken(forProvider: config.id)
+                AppLogger.success("OpenAI", "Token refreshed successfully")
+            } catch {
+                AppLogger.error("OpenAI", "Token refresh failed", details: String(describing: error))
+                throw AIProviderError.tokenExpired
+            }
+        }
+
+        let url = URL(string: "\(codexBaseURL)/codex/responses")!
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(currentTokens.accessToken)", forHTTPHeaderField: "Authorization")
+        urlRequest.timeoutInterval = 60
+
+        let systemPrompt = buildSystemPrompt(request: request)
+
+        // Responses API format
+        let body: [String: Any] = [
+            "model": config.model,
+            "instructions": systemPrompt,
+            "input": request.sourceText,
+            "stream": false
+        ]
+
+        let bodyData = try JSONSerialization.data(withJSONObject: body)
+        urlRequest.httpBody = bodyData
+
+        // Log request
+        if let prettyBody = try? JSONSerialization.data(withJSONObject: body, options: [.prettyPrinted, .sortedKeys]),
+           let bodyStr = String(data: prettyBody, encoding: .utf8) {
+            AppLogger.request("OpenAI·OAuth", "POST \(url.absoluteString)", details: bodyStr)
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AIProviderError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 401 {
+            AppLogger.error("OpenAI", "OAuth token expired (401)")
+            throw AIProviderError.tokenExpired
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            AppLogger.error("OpenAI", "Codex API error (\(httpResponse.statusCode))", details: errorBody)
+            throw AIProviderError.apiError("OpenAI Codex API error (\(httpResponse.statusCode)): \(errorBody)")
+        }
+
+        // Parse Responses API response
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw AIProviderError.invalidResponse
+        }
+
+        // Log response
+        if let prettyResponse = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]),
+           let responseStr = String(data: prettyResponse, encoding: .utf8) {
+            AppLogger.response("OpenAI·OAuth", "200 OK", details: responseStr)
+        }
+
+        // Responses API returns output in various formats, try to extract text
+        let translatedText: String
+        if let output = json["output"] as? [[String: Any]] {
+            // Array of output items — find text content
+            let texts = output.compactMap { item -> String? in
+                if let content = item["content"] as? [[String: Any]] {
+                    return content.compactMap { $0["text"] as? String }.joined()
+                }
+                if let text = item["text"] as? String { return text }
+                return nil
+            }
+            translatedText = texts.joined(separator: "\n")
+        } else if let outputText = json["output_text"] as? String {
+            translatedText = outputText
+        } else if let choices = json["choices"] as? [[String: Any]],
+                  let first = choices.first,
+                  let message = first["message"] as? [String: Any],
+                  let content = message["content"] as? String {
+            // Fallback: standard chat completions format
+            translatedText = content
+        } else {
+            throw AIProviderError.invalidResponse
+        }
+
+        return TranslationResponse(
+            translatedText: translatedText.trimmingCharacters(in: .whitespacesAndNewlines),
+            detectedLanguage: nil
+        )
+    }
+
+    // MARK: - API key path: standard Chat Completions
+
+    private func translateViaAPI(_ request: TranslationRequest, apiKey: String) async throws -> TranslationResponse {
         let url = URL(string: "\(config.baseURL)/chat/completions")!
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -50,7 +165,7 @@ final class OpenAIProvider: AIProvider {
         // Log request
         if let prettyBody = try? JSONSerialization.data(withJSONObject: body, options: [.prettyPrinted, .sortedKeys]),
            let bodyStr = String(data: prettyBody, encoding: .utf8) {
-            AppLogger.request("OpenAI", "POST \(url.absoluteString)", details: bodyStr)
+            AppLogger.request("OpenAI·API", "POST \(url.absoluteString)", details: bodyStr)
         }
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
@@ -70,7 +185,7 @@ final class OpenAIProvider: AIProvider {
             throw AIProviderError.apiError("OpenAI API error (\(httpResponse.statusCode)): \(errorBody)")
         }
 
-        // Parse OpenAI response
+        // Parse Chat Completions response
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = json["choices"] as? [[String: Any]],
               let firstChoice = choices.first,
@@ -82,7 +197,7 @@ final class OpenAIProvider: AIProvider {
         // Log response
         if let prettyResponse = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]),
            let responseStr = String(data: prettyResponse, encoding: .utf8) {
-            AppLogger.response("OpenAI", "200 OK", details: responseStr)
+            AppLogger.response("OpenAI·API", "200 OK", details: responseStr)
         }
 
         return TranslationResponse(

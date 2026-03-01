@@ -246,6 +246,156 @@ final class OAuthService: ObservableObject {
         }
     }
 
+    // MARK: - OpenAI OAuth (Authorization Code + PKCE via localhost, Codex CLI flow)
+
+    /// OpenAI Codex CLI OAuth constants
+    private let openAIAuthURL = "https://auth.openai.com/oauth/authorize"
+    private let openAITokenURL = "https://auth.openai.com/oauth/token"
+    private let openAIClientId = "app_EMoamEEZ73f0CkXaXp7hrann"
+    private let openAIScopes = "openid profile email offline_access"
+    private let openAICallbackPort: UInt16 = 1455
+
+    /// Start OpenAI OAuth using the same flow as Codex CLI:
+    /// 1. Start localhost HTTP server on port 1455
+    /// 2. Open browser to auth.openai.com/oauth/authorize with PKCE + Codex params
+    /// 3. Wait for callback with auth code
+    /// 4. Exchange code for tokens
+    func startOpenAIOAuth(providerId: String) async -> Bool {
+        isAuthenticating = true
+        authError = nil
+
+        do {
+            // Step 1: Generate PKCE pair and state
+            let codeVerifier = generateCodeVerifier()
+            let codeChallenge = generateCodeChallenge(from: codeVerifier)
+            let state = generateCodeVerifier()
+
+            // Step 2: Start localhost HTTP server on fixed port 1455 (Codex CLI convention)
+            let callbackServer = LocalCallbackServer()
+            let port = try await callbackServer.start(preferredPort: openAICallbackPort)
+            let redirectURI = "http://localhost:\(port)/auth/callback"
+
+            // Step 3: Build auth URL with Codex CLI special parameters
+            var components = URLComponents(string: openAIAuthURL)!
+            components.queryItems = [
+                URLQueryItem(name: "client_id", value: openAIClientId),
+                URLQueryItem(name: "response_type", value: "code"),
+                URLQueryItem(name: "redirect_uri", value: redirectURI),
+                URLQueryItem(name: "scope", value: openAIScopes),
+                URLQueryItem(name: "code_challenge", value: codeChallenge),
+                URLQueryItem(name: "code_challenge_method", value: "S256"),
+                URLQueryItem(name: "state", value: state),
+                URLQueryItem(name: "codex_cli_simplified_flow", value: "true"),
+                URLQueryItem(name: "originator", value: "codex_cli_rs")
+            ]
+
+            AppLogger.info("OAuth", "Opening OpenAI OAuth in browser",
+                details: "URL: \(components.url?.absoluteString ?? "nil")")
+
+            if let url = components.url {
+                NSWorkspace.shared.open(url)
+            }
+
+            // Step 4: Wait for callback
+            let callbackResult = try await callbackServer.waitForCallback(timeoutSeconds: 120)
+            callbackServer.stop()
+
+            // Step 5: Verify state
+            guard callbackResult.state == state else {
+                throw AIProviderError.apiError("OAuth state mismatch")
+            }
+
+            guard let code = callbackResult.code else {
+                throw AIProviderError.apiError("No authorization code received")
+            }
+
+            AppLogger.success("OAuth", "OpenAI authorization code received")
+
+            // Step 6: Exchange code for tokens
+            let success = await exchangeOpenAICode(
+                code: code,
+                codeVerifier: codeVerifier,
+                redirectURI: redirectURI,
+                providerId: providerId
+            )
+            return success
+
+        } catch {
+            authError = error.localizedDescription
+            AppLogger.error("OAuth", "OpenAI OAuth failed", details: error.localizedDescription)
+            isAuthenticating = false
+            return false
+        }
+    }
+
+    /// Exchange OpenAI authorization code for tokens
+    private func exchangeOpenAICode(
+        code: String,
+        codeVerifier: String,
+        redirectURI: String,
+        providerId: String
+    ) async -> Bool {
+        guard let url = URL(string: openAITokenURL) else {
+            authError = "Invalid token URL"
+            isAuthenticating = false
+            return false
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: String] = [
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirectURI,
+            "client_id": openAIClientId,
+            "code_verifier": codeVerifier
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            AppLogger.request("OAuth", "POST \(openAITokenURL)", details: "Exchanging code for OpenAI tokens")
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                authError = "Invalid response"
+                isAuthenticating = false
+                return false
+            }
+
+            let responseBody = String(data: data, encoding: .utf8) ?? ""
+            AppLogger.response("OAuth", "OpenAI token response (\(httpResponse.statusCode))", details: responseBody)
+
+            guard httpResponse.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let accessToken = json["access_token"] as? String else {
+                authError = "Token exchange failed: \(responseBody)"
+                isAuthenticating = false
+                return false
+            }
+
+            let tokens = OAuthTokens(
+                accessToken: accessToken,
+                refreshToken: json["refresh_token"] as? String,
+                expiresAt: (json["expires_in"] as? TimeInterval).map { Date().addingTimeInterval($0) },
+                tokenType: json["token_type"] as? String ?? "Bearer"
+            )
+
+            try keychain.saveOAuthTokens(tokens, forProvider: providerId)
+            AppLogger.success("OAuth", "OpenAI OAuth complete — tokens saved")
+            isAuthenticating = false
+            return true
+
+        } catch {
+            authError = "Token exchange failed: \(error.localizedDescription)"
+            isAuthenticating = false
+            return false
+        }
+    }
+
     // MARK: - API Key (Fallback)
 
     func saveAPIKey(_ key: String, forProvider providerId: String) throws {
@@ -342,6 +492,50 @@ final class OAuthService: ObservableObject {
 
         try keychain.saveOAuthTokens(newTokens, forProvider: providerId)
         print("[OAuth] Claude token refreshed successfully")
+        return newTokens
+    }
+
+    /// Refresh an expired OpenAI OAuth token using the stored refresh_token
+    func refreshOpenAIToken(forProvider providerId: String) async throws -> OAuthTokens {
+        guard let tokens = keychain.getOAuthTokens(forProvider: providerId),
+              let refreshToken = tokens.refreshToken else {
+            throw AIProviderError.notAuthenticated
+        }
+
+        guard let url = URL(string: openAITokenURL) else {
+            throw AIProviderError.apiError("Invalid token URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: String] = [
+            "grant_type": "refresh_token",
+            "refresh_token": refreshToken,
+            "client_id": openAIClientId
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let accessToken = json["access_token"] as? String else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
+            throw AIProviderError.apiError("OpenAI token refresh failed: \(errorBody)")
+        }
+
+        let newTokens = OAuthTokens(
+            accessToken: accessToken,
+            refreshToken: json["refresh_token"] as? String ?? refreshToken,
+            expiresAt: (json["expires_in"] as? TimeInterval).map { Date().addingTimeInterval($0) },
+            tokenType: json["token_type"] as? String ?? "Bearer"
+        )
+
+        try keychain.saveOAuthTokens(newTokens, forProvider: providerId)
+        AppLogger.success("OAuth", "OpenAI token refreshed successfully")
         return newTokens
     }
 
