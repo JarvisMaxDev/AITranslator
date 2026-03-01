@@ -1,19 +1,36 @@
 import SwiftUI
 import Carbon.HIToolbox
 
-/// Settings view for managing AI providers
 struct SettingsView: View {
     @EnvironmentObject var settingsViewModel: SettingsViewModel
     @Environment(\.dismiss) private var dismiss
+
+    private enum Tab: String, CaseIterable {
+        case general = "General"
+        case providers = "AI Providers"
+        
+        var localizedStringKey: LocalizedStringKey {
+            switch self {
+            case .general: return "settings.general"
+            case .providers: return "settings.providers"
+            }
+        }
+    }
+
+    @State private var selectedTab: Tab = .general
+    
+    // UI state
     @State private var showAddProvider = false
-    @State private var editingProvider: ProviderConfig?
     @State private var apiKeyInput = ""
     @State private var showAPIKeyInput = false
     @State private var apiKeyTargetId: String?
-    /// Draft copy of provider configs for pending changes
+    
+    // Drafts for cancel/save
     @State private var draftConfigs: [ProviderConfig] = []
+    @State private var draftSelectedProviderId: String? = nil
     @State private var hasChanges = false
-    /// Hotkey configuration
+    
+    // Settings state
     @State private var hotkeyKeyCode: UInt32 = {
         let saved = UserDefaults.standard.integer(forKey: Constants.UserDefaultsKeys.hotkeyKeyCode)
         return saved > 0 ? UInt32(saved) : UInt32(kVK_ANSI_C)
@@ -22,7 +39,6 @@ struct SettingsView: View {
         let saved = UserDefaults.standard.integer(forKey: Constants.UserDefaultsKeys.hotkeyModifiers)
         return saved > 0 ? UInt32(saved) : UInt32(cmdKey | shiftKey)
     }()
-    /// Current app language
     @State private var appLanguage: String = {
         let langs = UserDefaults.standard.stringArray(forKey: "AppleLanguages") ?? []
         let first = langs.first ?? Locale.preferredLanguages.first ?? "en"
@@ -32,34 +48,173 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Provider list
-            ScrollView {
-                VStack(spacing: 12) {
-                    // Providers section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text(NSLocalizedString("settings.providers", comment: "AI Providers"))
-                                .font(.headline)
-                            Spacer()
-                            Button(action: { showAddProvider = true }) {
-                                Label(
-                                    NSLocalizedString("settings.add_provider", comment: "Add Provider"),
-                                    systemImage: "plus.circle"
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(Color.accentColor)
-                        }
+            // Custom Toolbar mimicking native layout but perfectly centered in the window
+            HStack {
+                Spacer()
+                Picker("", selection: $selectedTab) {
+                    ForEach(Tab.allCases, id: \.self) { tab in
+                        Text(tab.localizedStringKey).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 250)
+                Spacer()
+            }
+            .padding(.top, 16)
+            .padding(.bottom, 16)
+            
+            // Content Area
+            ZStack(alignment: .top) {
+                switch selectedTab {
+                case .general:
+                    generalTab
+                case .providers:
+                    providersTab
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Bottom Save/Cancel Bar
+            VStack(spacing: 0) {
+                Divider()
+                HStack {
+                    Spacer()
+                    Button(NSLocalizedString("action.cancel", comment: "Cancel")) {
+                        draftConfigs = settingsViewModel.providerConfigs
+                        draftSelectedProviderId = settingsViewModel.selectedProviderId
+                        hasChanges = false
+                        dismiss()
+                    }
+                    .keyboardShortcut(.escape, modifiers: [])
+                    
+                    Button(action: saveChanges) {
+                        Text(NSLocalizedString("action.save", comment: "Save"))
+                            .frame(minWidth: 60)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.accentColor)
+                    .disabled(!hasChanges)
+                    .keyboardShortcut(.return, modifiers: .command)
+                }
+                .padding(16)
+                .background(Color(nsColor: .windowBackgroundColor))
+            }
+        }
+        .frame(width: 650, height: 480)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear {
+            draftConfigs = settingsViewModel.providerConfigs
+            draftSelectedProviderId = settingsViewModel.selectedProviderId
+            hasChanges = false
+        }
+        .onChange(of: settingsViewModel.providerConfigs) { newConfigs in
+            if !hasChanges {
+                draftConfigs = newConfigs
+            }
+        }
+        .onChange(of: settingsViewModel.selectedProviderId) { newId in
+            if !hasChanges {
+                draftSelectedProviderId = newId
+            }
+        }
+        .navigationTitle("")
+        .sheet(isPresented: $showAddProvider) { addProviderSheet }
+        .sheet(isPresented: $showAPIKeyInput) { apiKeyInputSheet }
+        .alert(NSLocalizedString("settings.restart_title", comment: ""), isPresented: $showRestartAlert) {
+            Button(NSLocalizedString("settings.restart_now", comment: "")) {
+                let bundlePath = Bundle.main.bundlePath
+                let script = "sleep 0.5; open \"\(bundlePath)\""
+                let task = Process()
+                task.launchPath = "/bin/sh"
+                task.arguments = ["-c", script]
+                try? task.run()
+                NSApp.terminate(nil)
+            }
+            Button(NSLocalizedString("settings.restart_later", comment: ""), role: .cancel) {}
+        } message: {
+            Text(NSLocalizedString("settings.restart_message", comment: ""))
+        }
+    }
 
-                        if settingsViewModel.providerConfigs.isEmpty {
-                            emptyStateView
-                        } else {
-                            ForEach(settingsViewModel.providerConfigs) { config in
-                                providerRow(config)
-                            }
-                        }
+    private func saveChanges() {
+        for draft in draftConfigs {
+            settingsViewModel.updateProvider(draft)
+        }
+        if let id = draftSelectedProviderId {
+            settingsViewModel.selectProvider(id: id)
+        }
+        hasChanges = false
+        dismiss()
+    }
 
-                        // Global auth error display
+    // MARK: - General Tab
+
+    private var generalTab: some View {
+        VStack {
+            GroupBox {
+                VStack(spacing: 20) {
+                    HStack(spacing: 24) {
+                        Text(NSLocalizedString("settings.interface_language", comment: ""))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        
+                        Picker("", selection: $appLanguage) {
+                            Text("English").tag("en")
+                            Text("Русский").tag("ru")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .fixedSize()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .onChange(of: appLanguage) { newValue in
+                            UserDefaults.standard.set([newValue], forKey: "AppleLanguages")
+                            UserDefaults.standard.synchronize()
+                            showRestartAlert = true
+                        }
+                    }
+
+                    HStack(spacing: 24) {
+                        Text(NSLocalizedString("settings.hotkey", comment: ""))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        
+                        HotkeyRecorderView(
+                            keyCode: $hotkeyKeyCode,
+                            modifiers: $hotkeyModifiers
+                        )
+                        .fixedSize()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(24)
+            }
+            .padding(32)
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    // MARK: - Providers Tab
+
+    private var providersTab: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Button(action: { showAddProvider = true }) {
+                    Label(NSLocalizedString("settings.add_provider", comment: "Add Provider"), systemImage: "plus")
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 12)
+
+            if draftConfigs.isEmpty {
+                emptyStateView
+            } else {
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach(draftConfigs) { config in
+                            providerRow(config)
+                        }
+                        
+                        // Auth Error Display
                         if let error = settingsViewModel.authError {
                             HStack(spacing: 8) {
                                 Image(systemName: "exclamationmark.triangle.fill")
@@ -75,220 +230,69 @@ struct SettingsView: View {
                                 .buttonStyle(.plain)
                             }
                             .padding(10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(.red.opacity(0.1))
-                            )
+                            .background(RoundedRectangle(cornerRadius: 8).fill(.red.opacity(0.1)))
                         }
 
-                        // Device code auth in progress
+                        // Device Auth in Progress
                         if settingsViewModel.isAuthenticating {
                             authInProgressView
                         }
                     }
-                    .padding(20)
-
-                    // Hotkey section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(NSLocalizedString("settings.hotkey", comment: "Global Hotkey"))
-                            .font(.headline)
-
-                        HStack {
-                            Text(NSLocalizedString("settings.hotkey_translate", comment: "Translate selected text"))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            HotkeyRecorderView(
-                                keyCode: $hotkeyKeyCode,
-                                modifiers: $hotkeyModifiers
-                            )
-                        }
-                    }
-                    .padding(20)
-
-                    // App language section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(NSLocalizedString("settings.app_language", comment: "App Language"))
-                            .font(.headline)
-
-                        HStack {
-                            Text(NSLocalizedString("settings.interface_language", comment: "Interface language"))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Picker("", selection: $appLanguage) {
-                                Text("English").tag("en")
-                                Text("Русский").tag("ru")
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.segmented)
-                            .frame(width: 180)
-                            .onChange(of: appLanguage) { newValue in
-                                UserDefaults.standard.set([newValue], forKey: "AppleLanguages")
-                                UserDefaults.standard.synchronize()
-                                showRestartAlert = true
-                            }
-                        }
-                    }
-                    .padding(20)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
                 }
             }
-
-            // Save / Cancel bar (always visible)
-            Divider()
-            HStack {
-                Spacer()
-                Button(NSLocalizedString("settings.cancel", comment: "Cancel")) {
-                    draftConfigs = settingsViewModel.providerConfigs
-                    hasChanges = false
-                }
-                .keyboardShortcut(.escape, modifiers: [])
-                .disabled(!hasChanges)
-
-                Button(NSLocalizedString("settings.save", comment: "Save")) {
-                    for draft in draftConfigs {
-                        settingsViewModel.updateProvider(draft)
-                    }
-                    hasChanges = false
-                }
-                .keyboardShortcut(.return, modifiers: .command)
-                .buttonStyle(.borderedProminent)
-                .disabled(!hasChanges)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
         }
-        .frame(minWidth: 500, minHeight: 400)
-        .onAppear {
-            draftConfigs = settingsViewModel.providerConfigs
-        }
-        .onChange(of: settingsViewModel.providerConfigs) { newConfigs in
-            if !hasChanges {
-                draftConfigs = newConfigs
-            }
-        }
-        .sheet(isPresented: $showAddProvider) {
-            addProviderSheet
-        }
-        .sheet(isPresented: $showAPIKeyInput) {
-            apiKeyInputSheet
-        }
-        .alert(NSLocalizedString("settings.restart_title", comment: "Restart Required"),
-               isPresented: $showRestartAlert) {
-            Button(NSLocalizedString("settings.restart_now", comment: "Restart Now")) {
-                // Relaunch: use shell to wait and then open the app
-                let bundlePath = Bundle.main.bundlePath
-                let script = "sleep 0.5; open \"\(bundlePath)\""
-                let task = Process()
-                task.launchPath = "/bin/sh"
-                task.arguments = ["-c", script]
-                try? task.run()
-                NSApp.terminate(nil)
-            }
-            Button(NSLocalizedString("settings.restart_later", comment: "Later"), role: .cancel) {}
-        } message: {
-            Text(NSLocalizedString("settings.restart_message", comment: "Restart to apply language change"))
-        }
-    }
-
-    // MARK: - Auth In Progress
-
-    private var authInProgressView: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .controlSize(.regular)
-
-            if let code = settingsViewModel.authUserCode {
-                Text(NSLocalizedString("settings.device_code_title", comment: "Enter this code in your browser:"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Text(code)
-                    .font(.system(.title, design: .monospaced))
-                    .fontWeight(.bold)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(.quaternary)
-                    )
-
-                Text(NSLocalizedString("settings.waiting_auth", comment: "Waiting for authentication..."))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            } else {
-                Text(NSLocalizedString("settings.connecting", comment: "Connecting..."))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Button(NSLocalizedString("action.cancel", comment: "Cancel")) {
-                settingsViewModel.cancelAuth()
-            }
-            .controlSize(.small)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.background)
-                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(.blue.opacity(0.3), lineWidth: 1)
-        )
     }
 
     // MARK: - Provider Row
 
     private func providerRow(_ config: ProviderConfig) -> some View {
-        HStack(spacing: 12) {
+        let isActive = (draftSelectedProviderId == config.id)
+        
+        return HStack(alignment: .top, spacing: 16) {
             // Provider icon
             Image(systemName: config.type.iconSystemName)
-                .font(.title2)
+                .font(.title)
                 .foregroundStyle(.secondary)
-                .frame(width: 36, height: 36)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.quaternary)
-                )
+                .frame(width: 44, height: 44)
+                .background(RoundedRectangle(cornerRadius: 10).fill(.quaternary))
 
-            // Provider info
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
+            // Info and Actions
+            VStack(alignment: .leading, spacing: 8) {
+                // Top row: Title and Badge
+                HStack(spacing: 8) {
                     Text(config.name)
-                        .fontWeight(.medium)
-
-                    if settingsViewModel.selectedProviderId == config.id {
-                        Text(NSLocalizedString("settings.active", comment: "Active"))
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(.green.opacity(0.2))
-                            )
-                            .foregroundStyle(.green)
-                    }
+                        .font(.headline)
+                        .lineLimit(1)
+                    
+                    Spacer()
                 }
 
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(config.isAuthenticated ? .green : .orange)
-                        .frame(width: 6, height: 6)
-                    Text(config.isAuthenticated
-                         ? NSLocalizedString("settings.connected", comment: "Connected")
-                         : NSLocalizedString("settings.not_connected", comment: "Not connected"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("•")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                // Bottom row: Status, Picker, and Actions
+                HStack(alignment: .center, spacing: 12) {
+                    // Status
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(config.isAuthenticated ? .green : .orange)
+                            .frame(width: 8, height: 8)
+                        
+                        Text(config.isAuthenticated
+                             ? NSLocalizedString("settings.connected", comment: "Connected")
+                             : NSLocalizedString("settings.not_connected", comment: "Not connected"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .layoutPriority(1)
+                        
+                        Text("•")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                        
+                    // Model Picker
                     Picker("", selection: Binding(
-                        get: {
-                            draftConfigs.first(where: { $0.id == config.id })?.model ?? config.model
-                        },
+                        get: { config.model },
                         set: { newModel in
                             if let idx = draftConfigs.firstIndex(where: { $0.id == config.id }) {
                                 draftConfigs[idx].model = newModel
@@ -302,87 +306,146 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .controlSize(.small)
-                    .fixedSize()
+                    .frame(width: 180, alignment: .leading)
                     .onAppear {
                         settingsViewModel.fetchModels(forProvider: config.id)
                     }
-                }
-            }
 
-            Spacer()
+                    Spacer()
 
-            // Actions
-            HStack(spacing: 8) {
-                if !config.isAuthenticated {
-                    Button(NSLocalizedString("settings.connect", comment: "Connect")) {
-                        settingsViewModel.startOAuth(forProvider: config.id)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .disabled(settingsViewModel.isAuthenticating)
+                    // Actions
+                    HStack(spacing: 8) {
+                        if !config.isAuthenticated {
+                            Button(NSLocalizedString("settings.connect", comment: "Connect")) {
+                                settingsViewModel.startOAuth(forProvider: config.id)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .fixedSize()
+                            .disabled(settingsViewModel.isAuthenticating)
 
-                    Button(NSLocalizedString("settings.api_key", comment: "API Key")) {
-                        apiKeyTargetId = config.id
-                        apiKeyInput = ""
-                        showAPIKeyInput = true
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                } else {
-                    if settingsViewModel.selectedProviderId != config.id {
-                        Button(NSLocalizedString("settings.use", comment: "Use")) {
-                            settingsViewModel.selectProvider(id: config.id)
+                            Button(NSLocalizedString("settings.api_key", comment: "API Key")) {
+                                apiKeyTargetId = config.id
+                                apiKeyInput = ""
+                                showAPIKeyInput = true
+                            }
+                            .buttonStyle(.bordered)
+                            .fixedSize()
+                        } else {
+                            if isActive {
+                                Text(NSLocalizedString("settings.active", comment: "Active"))
+                                    .font(.system(size: 11, weight: .bold))
+                                    .textCase(.uppercase)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Capsule().fill(.blue.opacity(0.15)))
+                                    .foregroundStyle(.blue)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            } else {
+                                Button(NSLocalizedString("settings.use", comment: "Use")) {
+                                    draftSelectedProviderId = config.id
+                                    hasChanges = true
+                                }
+                                .buttonStyle(.bordered)
+                                .fixedSize()
+                            }
+
+                            Button(NSLocalizedString("settings.disconnect", comment: "Disconnect")) {
+                                settingsViewModel.disconnectProvider(id: config.id)
+                            }
+                            .buttonStyle(.bordered)
+                            .fixedSize()
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
 
-                    Button(NSLocalizedString("settings.disconnect", comment: "Disconnect")) {
-                        settingsViewModel.disconnectProvider(id: config.id)
+                        Button(action: {
+                            settingsViewModel.removeProvider(id: config.id)
+                            draftConfigs.removeAll { $0.id == config.id }
+                            if draftSelectedProviderId == config.id {
+                                draftSelectedProviderId = draftConfigs.first?.id
+                            }
+                            hasChanges = true
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundStyle(.red.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.red)
-                    .controlSize(.small)
                 }
-
-                // Delete
-                Button(action: {
-                    settingsViewModel.removeProvider(id: config.id)
-                }) {
-                    Image(systemName: "trash")
-                        .foregroundStyle(.red.opacity(0.7))
-                }
-                .buttonStyle(.plain)
             }
         }
-        .padding(12)
+        .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.background)
-                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(nsColor: .controlBackgroundColor))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(.quaternary, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.secondary.opacity(0.1), lineWidth: 1)
         )
     }
 
     // MARK: - Empty State
 
     private var emptyStateView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
+            Spacer()
             Image(systemName: "globe")
-                .font(.system(size: 40))
+                .font(.system(size: 48))
                 .foregroundStyle(.tertiary)
-            Text(NSLocalizedString("settings.no_providers", comment: "No providers configured"))
+            Text(NSLocalizedString("settings.no_providers", comment: ""))
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            Text(NSLocalizedString("settings.add_provider_hint", comment: "Add an AI provider to start translating"))
-                .font(.caption)
+            Text(NSLocalizedString("settings.add_provider_hint", comment: ""))
+                .font(.subheadline)
                 .foregroundStyle(.tertiary)
+            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Auth In Progress
+
+    private var authInProgressView: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.regular)
+
+            if let code = settingsViewModel.authUserCode {
+                Text(NSLocalizedString("settings.device_code_title", comment: ""))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Text(code)
+                    .font(.system(.title, design: .monospaced))
+                    .fontWeight(.bold)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
+
+                Text(NSLocalizedString("settings.waiting_auth", comment: ""))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text(NSLocalizedString("settings.connecting", comment: ""))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button(NSLocalizedString("action.cancel", comment: "")) {
+                settingsViewModel.cancelAuth()
+            }
+            .controlSize(.small)
+        }
+        .padding(16)
         .frame(maxWidth: .infinity)
-        .padding(40)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(.blue.opacity(0.3), lineWidth: 1)
+        )
     }
 
     // MARK: - Add Provider Sheet
@@ -393,17 +456,22 @@ struct SettingsView: View {
                 .font(.title3)
                 .fontWeight(.semibold)
 
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 ForEach(ProviderType.allCases) { type in
                     Button(action: {
-                        settingsViewModel.addProvider(type: type)
+                        let config = ProviderConfig(type: type)
+                        draftConfigs.append(config)
+                        if draftSelectedProviderId == nil {
+                            draftSelectedProviderId = config.id
+                        }
+                        hasChanges = true
                         showAddProvider = false
                     }) {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 16) {
                             Image(systemName: type.iconSystemName)
                                 .font(.title2)
                                 .frame(width: 32)
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(type.displayName)
                                     .fontWeight(.medium)
                                 Text(type.defaultModel)
@@ -414,15 +482,9 @@ struct SettingsView: View {
                             Image(systemName: "chevron.right")
                                 .foregroundStyle(.tertiary)
                         }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(.background)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .strokeBorder(.quaternary, lineWidth: 1)
-                        )
+                        .padding(16)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.secondary.opacity(0.1), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -433,8 +495,8 @@ struct SettingsView: View {
             }
             .keyboardShortcut(.escape, modifiers: [])
         }
-        .padding(24)
-        .frame(width: 380)
+        .padding(32)
+        .frame(width: 450)
     }
 
     // MARK: - API Key Input Sheet
@@ -446,9 +508,9 @@ struct SettingsView: View {
                 .fontWeight(.semibold)
 
             if let targetId = apiKeyTargetId,
-               let config = settingsViewModel.providerConfigs.first(where: { $0.id == targetId }) {
+               let config = draftConfigs.first(where: { $0.id == targetId }) {
                 Text(apiKeyHint(for: config.type))
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -465,6 +527,10 @@ struct SettingsView: View {
                 Button(NSLocalizedString("action.save", comment: "Save")) {
                     if let id = apiKeyTargetId, !apiKeyInput.isEmpty {
                         settingsViewModel.saveAPIKey(apiKeyInput, forProvider: id)
+                        if let idx = draftConfigs.firstIndex(where: { $0.id == id }) {
+                            draftConfigs[idx].isAuthenticated = true
+                            hasChanges = true
+                        }
                         showAPIKeyInput = false
                     }
                 }
@@ -473,25 +539,16 @@ struct SettingsView: View {
                 .keyboardShortcut(.return, modifiers: .command)
             }
         }
-        .padding(24)
+        .padding(32)
         .frame(width: 400)
     }
 
-    /// Provider-specific API key hint
     private func apiKeyHint(for type: ProviderType) -> String {
         switch type {
-        case .qwen:
-            return NSLocalizedString("settings.qwen_api_key_hint",
-                comment: "Get your API key at dashscope.console.aliyun.com")
-        case .anthropic:
-            return NSLocalizedString("settings.anthropic_api_key_hint",
-                comment: "Get your API key at console.anthropic.com")
-        case .openai:
-            return NSLocalizedString("settings.openai_api_key_hint",
-                comment: "Get your API key at platform.openai.com")
-        case .gemini:
-            return NSLocalizedString("settings.gemini_api_key_hint",
-                comment: "Get your API key at aistudio.google.com")
+        case .qwen: return NSLocalizedString("settings.qwen_api_key_hint", comment: "")
+        case .anthropic: return NSLocalizedString("settings.anthropic_api_key_hint", comment: "")
+        case .openai: return NSLocalizedString("settings.openai_api_key_hint", comment: "")
+        case .gemini: return NSLocalizedString("settings.gemini_api_key_hint", comment: "")
         }
     }
 }

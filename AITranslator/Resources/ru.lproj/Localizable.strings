@@ -28,6 +28,7 @@
 
 /* Settings */
 "settings.title" = "Настройки";
+"settings.general" = "Общие";
 "settings.providers" = "AI-провайдеры";
 "settings.add_provider" = "Добавить провайдер";
 "settings.choose_provider" = "Выберите провайдер";

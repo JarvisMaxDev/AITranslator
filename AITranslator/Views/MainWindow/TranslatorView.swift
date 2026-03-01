@@ -101,7 +101,10 @@ struct TranslatorView: View {
         // Minimal native toolbar for the settings gear, keeping it out of the main layout, similar to standard apps
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button(action: { openWindow(id: "settings") }) {
+                Button(action: {
+                    openWindow(id: "settings")
+                    NSApp.activate(ignoringOtherApps: true)
+                }) {
                     Image(systemName: "gearshape")
                 }
                 .keyboardShortcut(",", modifiers: .command)

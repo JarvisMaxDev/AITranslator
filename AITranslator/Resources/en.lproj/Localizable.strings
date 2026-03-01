@@ -28,6 +28,7 @@
 
 /* Settings */
 "settings.title" = "Settings";
+"settings.general" = "General";
 "settings.providers" = "AI Providers";
 "settings.add_provider" = "Add Provider";
 "settings.choose_provider" = "Choose Provider";
