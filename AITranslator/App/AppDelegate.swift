@@ -2,90 +2,24 @@ import Cocoa
 import SwiftUI
 import Carbon.HIToolbox
 
-/// Callback for CGEvent tap — must be a free function (not a method)
-/// Detects double ⌘C within 0.4s
-private var lastCmdCTime: Date?
-private var appDelegateRef: AppDelegate?
-
-private func eventTapCallback(
-    proxy: CGEventTapProxy,
-    type: CGEventType,
-    event: CGEvent,
-    refcon: UnsafeMutableRawPointer?
-) -> Unmanaged<CGEvent>? {
-    // Pass through non-keyDown events
-    guard type == .keyDown else {
-        // If the tap is disabled by the system, re-enable it
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let refcon = refcon {
-                let pointer = refcon.assumingMemoryBound(to: CFMachPort?.self)
-                if let tap = pointer.pointee {
-                    CGEvent.tapEnable(tap: tap, enable: true)
-                }
-            }
-        }
-        return Unmanaged.passRetained(event)
-    }
-
-    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-    let flags = event.flags
-
-    // Check for ⌘C (keyCode 8 = 'c', Command flag set)
-    guard keyCode == 8, flags.contains(.maskCommand) else {
-        lastCmdCTime = nil
-        return Unmanaged.passRetained(event)
-    }
-
-    let now = Date()
-    if let lastTime = lastCmdCTime, now.timeIntervalSince(lastTime) < 0.4 {
-        // Double ⌘C detected!
-        lastCmdCTime = nil
-        DispatchQueue.main.async {
-            appDelegateRef?.showPopupTranslator()
-        }
-    } else {
-        lastCmdCTime = now
-    }
-
-    // Always pass the event through so ⌘C still copies
-    return Unmanaged.passRetained(event)
-}
-
 /// AppDelegate handles global hotkey registration and menu bar status item.
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var popupWindow: NSWindow?
     private var popupHostingController: NSHostingController<AnyView>?
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
+    private var hotKeyRef: EventHotKeyRef?
     /// Shared SettingsViewModel — injected from AITranslatorApp after launch
     var settingsViewModel: SettingsViewModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        appDelegateRef = self
         setupStatusItem()
-        requestAccessibilityIfNeeded()
         setupGlobalHotkey()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-        }
-        if let source = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
-        }
-    }
-
-    // MARK: - Accessibility Permissions
-
-    private func requestAccessibilityIfNeeded() {
-        let trusted = AXIsProcessTrustedWithOptions(
-            [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        )
-        if !trusted {
-            print("[Hotkey] Accessibility not granted — global hotkeys will not work until enabled in System Settings.")
+        if let ref = hotKeyRef {
+            UnregisterEventHotKey(ref)
         }
     }
 
@@ -128,47 +62,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
-    // MARK: - Global Hotkey (Double ⌘C via CGEvent Tap)
+    // MARK: - Global Hotkey (⌘⇧C via Carbon API)
 
     private func setupGlobalHotkey() {
-        // Allocate storage for the tap reference so the callback can re-enable it
-        let tapPointer = UnsafeMutablePointer<CFMachPort?>.allocate(capacity: 1)
-        tapPointer.initialize(to: nil)
+        // Register ⌘⇧C as global hotkey using Carbon API
+        // This works WITHOUT Accessibility permissions!
+        let hotKeyID = EventHotKeyID(signature: OSType(0x5452_4E53), // "TRNS"
+                                      id: 1)
 
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .listenOnly,
-            eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue),
-            callback: eventTapCallback,
-            userInfo: tapPointer
-        ) else {
-            print("[Hotkey] Failed to create CGEvent tap. Check Accessibility permissions.")
-            tapPointer.deallocate()
-            return
+        // Install handler for hotkey events
+        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
+                                      eventKind: UInt32(kEventHotKeyPressed))
+
+        let handlerPtr = UnsafeMutablePointer<AppDelegate>.allocate(capacity: 1)
+        handlerPtr.initialize(to: self)
+
+        InstallEventHandler(
+            GetApplicationEventTarget(),
+            { (_, event, userData) -> OSStatus in
+                guard let userData = userData else { return OSStatus(eventNotHandledErr) }
+                let delegate = userData.assumingMemoryBound(to: AppDelegate.self).pointee
+                DispatchQueue.main.async {
+                    delegate.showPopupTranslator()
+                }
+                return noErr
+            },
+            1, &eventType, handlerPtr, nil
+        )
+
+        // keyCode 8 = 'c', cmdKey | shiftKey modifiers
+        let modifiers = UInt32(cmdKey | shiftKey)
+        let keyCode = UInt32(kVK_ANSI_C)
+
+        var ref: EventHotKeyRef?
+        let status = RegisterEventHotKey(keyCode, modifiers, hotKeyID,
+                                          GetApplicationEventTarget(), 0, &ref)
+
+        if status == noErr {
+            hotKeyRef = ref
+            print("[Hotkey] ⌘⇧C registered successfully (no Accessibility needed)")
+        } else {
+            print("[Hotkey] Failed to register ⌘⇧C hotkey: \(status)")
         }
-
-        tapPointer.pointee = tap
-        eventTap = tap
-
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        runLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-
-        print("[Hotkey] CGEvent tap installed — double ⌘C active")
     }
 
     // MARK: - Popup Translator
 
     func showPopupTranslator() {
-        // Small delay to let ⌘C finish copying to clipboard
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.presentPopup()
-        }
-    }
-
-    private func presentPopup() {
+        // Grab clipboard text — user likely copied before pressing hotkey
         let clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
 
         if let existing = popupWindow, existing.isVisible {
