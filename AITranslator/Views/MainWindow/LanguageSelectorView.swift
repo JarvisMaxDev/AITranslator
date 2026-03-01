@@ -42,6 +42,17 @@ private struct LanguagePopoverContent: View {
     @Binding var isPresented: Bool
     @State private var searchText = ""
 
+    private static let recentKey = "recentLanguageCodes"
+    private static let maxRecent = 3
+
+    private var recentLanguages: [Language] {
+        guard searchText.isEmpty else { return [] }
+        let codes = UserDefaults.standard.stringArray(forKey: Self.recentKey) ?? []
+        return codes.compactMap { code in
+            LanguageList.find(byCode: code)
+        }
+    }
+
     private var filteredLanguages: [Language] {
         let all = LanguageList.all
         if searchText.isEmpty {
@@ -52,6 +63,17 @@ private struct LanguagePopoverContent: View {
             $0.localizedName.localizedCaseInsensitiveContains(searchText) ||
             $0.code.localizedCaseInsensitiveContains(searchText)
         }
+    }
+
+    private func trackLanguage(_ code: String) {
+        guard code != "auto" else { return }
+        var codes = UserDefaults.standard.stringArray(forKey: Self.recentKey) ?? []
+        codes.removeAll { $0 == code }
+        codes.insert(code, at: 0)
+        if codes.count > Self.maxRecent {
+            codes = Array(codes.prefix(Self.maxRecent))
+        }
+        UserDefaults.standard.set(codes, forKey: Self.recentKey)
     }
 
     var body: some View {
@@ -86,14 +108,29 @@ private struct LanguagePopoverContent: View {
                             .id("auto")
                     }
 
+                    // Recent languages
+                    if !recentLanguages.isEmpty {
+                        Section(header: Text(NSLocalizedString("language.recent", comment: "Recent"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)) {
+                            ForEach(recentLanguages) { language in
+                                languageRow(language)
+                            }
+                        }
+                    }
+
                     // All languages
-                    ForEach(filteredLanguages) { language in
-                        languageRow(language)
+                    Section(header: recentLanguages.isEmpty ? nil :
+                        Text(NSLocalizedString("language.all", comment: "All Languages"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)) {
+                        ForEach(filteredLanguages) { language in
+                            languageRow(language)
+                        }
                     }
                 }
                 .listStyle(.plain)
                 .onAppear {
-                    // Scroll to selected language
                     proxy.scrollTo(selectedLanguage.code, anchor: .center)
                 }
             }
@@ -104,6 +141,7 @@ private struct LanguagePopoverContent: View {
     @ViewBuilder
     private func languageRow(_ language: Language) -> some View {
         Button(action: {
+            trackLanguage(language.code)
             selectedLanguage = language
             isPresented = false
         }) {

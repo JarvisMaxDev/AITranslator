@@ -100,29 +100,29 @@ struct SettingsView: View {
                 }
             }
 
-            // Save / Cancel bar
-            if hasChanges {
-                Divider()
-                HStack {
-                    Spacer()
-                    Button(NSLocalizedString("settings.cancel", comment: "Cancel")) {
-                        draftConfigs = settingsViewModel.providerConfigs
-                        hasChanges = false
-                    }
-                    .keyboardShortcut(.escape, modifiers: [])
-
-                    Button(NSLocalizedString("settings.save", comment: "Save")) {
-                        for draft in draftConfigs {
-                            settingsViewModel.updateProvider(draft)
-                        }
-                        hasChanges = false
-                    }
-                    .keyboardShortcut(.return, modifiers: .command)
-                    .buttonStyle(.borderedProminent)
+            // Save / Cancel bar (always visible)
+            Divider()
+            HStack {
+                Spacer()
+                Button(NSLocalizedString("settings.cancel", comment: "Cancel")) {
+                    draftConfigs = settingsViewModel.providerConfigs
+                    hasChanges = false
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
+                .keyboardShortcut(.escape, modifiers: [])
+                .disabled(!hasChanges)
+
+                Button(NSLocalizedString("settings.save", comment: "Save")) {
+                    for draft in draftConfigs {
+                        settingsViewModel.updateProvider(draft)
+                    }
+                    hasChanges = false
+                }
+                .keyboardShortcut(.return, modifiers: .command)
+                .buttonStyle(.borderedProminent)
+                .disabled(!hasChanges)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
         }
         .frame(minWidth: 500, minHeight: 400)
         .onAppear {

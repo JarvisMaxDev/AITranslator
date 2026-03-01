@@ -9,6 +9,8 @@
 /* Languages */
 "language.auto_detect" = "Автоопределение";
 "language.search" = "Поиск...";
+"language.recent" = "Недавние";
+"language.all" = "Все языки";
 
 /* Actions */
 "action.copy" = "Копировать";

@@ -9,6 +9,8 @@
 /* Languages */
 "language.auto_detect" = "Auto Detect";
 "language.search" = "Search...";
+"language.recent" = "Recent";
+"language.all" = "All Languages";
 
 /* Actions */
 "action.copy" = "Copy";
