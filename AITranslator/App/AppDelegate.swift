@@ -75,19 +75,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
-    // MARK: - Global Hotkey (Double Ctrl+C)
+    // MARK: - Global Hotkey (Double ⌘C)
 
     private func setupGlobalHotkey() {
-        // Monitor global key events for double Ctrl+C
+        // Monitor global key events for double ⌘C
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleGlobalKeyEvent(event)
         }
     }
 
     private func handleGlobalKeyEvent(_ event: NSEvent) {
-        // Check for Ctrl+C (keyCode 8 = 'c', modifierFlags contains .control)
+        // Check for ⌘C (keyCode 8 = 'c', modifierFlags contains .command)
         guard event.keyCode == 8,
-              event.modifierFlags.contains(.control) else {
+              event.modifierFlags.contains(.command) else {
             lastControlCTime = nil
             return
         }
