@@ -38,10 +38,7 @@ final class TranslationService: ObservableObject {
             return nil
         }
 
-        guard provider.isAuthenticated else {
-            error = NSLocalizedString("error.not_authenticated", comment: "Provider not authenticated")
-            return nil
-        }
+        // Skip isAuthenticated check — auto-refresh handles expired tokens
 
         isTranslating = true
         error = nil
@@ -56,9 +53,13 @@ final class TranslationService: ObservableObject {
             let response = try await provider.translate(request)
             isTranslating = false
             return response
+        } catch let providerError as AIProviderError {
+            isTranslating = false
+            self.error = providerError.errorDescription
+            return nil
         } catch {
             isTranslating = false
-            self.error = error.localizedDescription
+            self.error = NSLocalizedString("error.translation_failed", comment: "Translation failed")
             return nil
         }
     }
