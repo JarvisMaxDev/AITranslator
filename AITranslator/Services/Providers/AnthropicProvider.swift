@@ -10,7 +10,7 @@ final class AnthropicProvider: AIProvider {
 
     var isAuthenticated: Bool {
         if let tokens = keychain.getOAuthTokens(forProvider: config.id) {
-            return !tokens.isExpired
+            return true // Even if expired, refresh token may work
         }
         return keychain.getAPIKey(forProvider: config.id) != nil
     }
@@ -33,9 +33,16 @@ final class AnthropicProvider: AIProvider {
         urlRequest.timeoutInterval = 30
 
         // Set auth header based on method
-        if let tokens = keychain.getOAuthTokens(forProvider: config.id) {
+        if var tokens = keychain.getOAuthTokens(forProvider: config.id) {
+            if tokens.isExpired {
+                do {
+                    tokens = try await OAuthService.shared.refreshClaudeToken(forProvider: config.id)
+                } catch {
+                    print("[Claude] Token refresh failed: \(error)")
+                    throw AIProviderError.tokenExpired
+                }
+            }
             urlRequest.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
-            // OAuth requires beta header to enable OAuth token support in Messages API
             urlRequest.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         } else if let apiKey = keychain.getAPIKey(forProvider: config.id) {
             urlRequest.setValue(apiKey, forHTTPHeaderField: "x-api-key")

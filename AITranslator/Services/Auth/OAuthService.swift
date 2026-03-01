@@ -6,6 +6,7 @@ import CommonCrypto
 /// Implements Device Code Flow for Qwen (RFC 8628) and OAuth2 PKCE for Anthropic.
 @MainActor
 final class OAuthService: ObservableObject {
+    static let shared = OAuthService()
     @Published var isAuthenticating = false
     @Published var authError: String?
     @Published var userCode: String?
@@ -249,6 +250,96 @@ final class OAuthService: ObservableObject {
 
     func saveAPIKey(_ key: String, forProvider providerId: String) throws {
         try keychain.saveAPIKey(key, forProvider: providerId)
+    }
+
+    // MARK: - Token Refresh
+
+    /// Refresh an expired Qwen OAuth token using the stored refresh_token
+    func refreshQwenToken(forProvider providerId: String) async throws -> OAuthTokens {
+        guard let tokens = keychain.getOAuthTokens(forProvider: providerId),
+              let refreshToken = tokens.refreshToken else {
+            throw AIProviderError.notAuthenticated
+        }
+
+        guard let url = URL(string: qwenTokenEndpoint) else {
+            throw AIProviderError.apiError("Invalid token URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: String] = [
+            "grant_type": "refresh_token",
+            "refresh_token": refreshToken,
+            "client_id": qwenClientId
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let accessToken = json["access_token"] as? String else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
+            throw AIProviderError.apiError("Token refresh failed: \(errorBody)")
+        }
+
+        let newTokens = OAuthTokens(
+            accessToken: accessToken,
+            refreshToken: json["refresh_token"] as? String ?? refreshToken,
+            expiresAt: (json["expires_in"] as? TimeInterval).map { Date().addingTimeInterval($0) },
+            tokenType: json["token_type"] as? String ?? "Bearer"
+        )
+
+        try keychain.saveOAuthTokens(newTokens, forProvider: providerId)
+        print("[OAuth] Qwen token refreshed successfully")
+        return newTokens
+    }
+
+    /// Refresh an expired Claude OAuth token using the stored refresh_token
+    func refreshClaudeToken(forProvider providerId: String) async throws -> OAuthTokens {
+        guard let tokens = keychain.getOAuthTokens(forProvider: providerId),
+              let refreshToken = tokens.refreshToken else {
+            throw AIProviderError.notAuthenticated
+        }
+
+        guard let url = URL(string: claudeTokenURL) else {
+            throw AIProviderError.apiError("Invalid token URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: String] = [
+            "grant_type": "refresh_token",
+            "refresh_token": refreshToken,
+            "client_id": claudeClientId
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let accessToken = json["access_token"] as? String else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
+            throw AIProviderError.apiError("Claude token refresh failed: \(errorBody)")
+        }
+
+        let newTokens = OAuthTokens(
+            accessToken: accessToken,
+            refreshToken: json["refresh_token"] as? String ?? refreshToken,
+            expiresAt: (json["expires_in"] as? TimeInterval).map { Date().addingTimeInterval($0) },
+            tokenType: json["token_type"] as? String ?? "Bearer"
+        )
+
+        try keychain.saveOAuthTokens(newTokens, forProvider: providerId)
+        print("[OAuth] Claude token refreshed successfully")
+        return newTokens
     }
 
     func disconnect(providerId: String) {

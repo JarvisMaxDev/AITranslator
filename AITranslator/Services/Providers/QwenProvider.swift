@@ -13,11 +13,7 @@ final class QwenProvider: AIProvider {
 
     var isAuthenticated: Bool {
         if let tokens = keychain.getOAuthTokens(forProvider: config.id) {
-            if tokens.isExpired {
-                // Token expired — but we might have a refresh token
-                // For now, mark as not authenticated so user re-authenticates
-                return false
-            }
+            // Even if expired, we may have a refresh token — consider authenticated
             return true
         }
         return keychain.getAPIKey(forProvider: config.id) != nil
@@ -33,7 +29,7 @@ final class QwenProvider: AIProvider {
     }
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResponse {
-        let (authHeader, baseURL, modelName) = try getAuthConfig()
+        let (authHeader, baseURL, modelName) = try await getAuthConfig()
 
         let url = URL(string: "\(baseURL)/chat/completions")!
         var urlRequest = URLRequest(url: url)
@@ -91,21 +87,25 @@ final class QwenProvider: AIProvider {
     /// Returns (authHeader, baseURL, model) based on available credentials.
     /// OAuth: resource_url normalized + "coder-model"
     /// API key: config.baseURL + config apiKeyModel
-    private func getAuthConfig() throws -> (String, String, String) {
+    private func getAuthConfig() async throws -> (String, String, String) {
         // Try OAuth first
-        if let tokens = keychain.getOAuthTokens(forProvider: config.id) {
+        if var tokens = keychain.getOAuthTokens(forProvider: config.id) {
             if tokens.isExpired {
-                throw AIProviderError.tokenExpired
+                // Try to refresh the token automatically
+                do {
+                    tokens = try await OAuthService.shared.refreshQwenToken(forProvider: config.id)
+                } catch {
+                    print("[Qwen] Token refresh failed: \(error)")
+                    throw AIProviderError.tokenExpired
+                }
             }
 
             let baseURL = normalizeEndpoint(tokens.resourceURL)
-            // OAuth uses "coder-model" (Qwen 3.5 Plus via portal.qwen.ai)
             return ("Bearer \(tokens.accessToken)", baseURL, "coder-model")
         }
 
         // Fall back to API key
         if let apiKey = keychain.getAPIKey(forProvider: config.id) {
-            // API key uses DashScope with standard model names
             return ("Bearer \(apiKey)", config.baseURL, config.type.apiKeyModel)
         }
 
