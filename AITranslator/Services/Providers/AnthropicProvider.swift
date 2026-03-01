@@ -26,7 +26,6 @@ final class AnthropicProvider: AIProvider {
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResponse {
         let url = URL(string: "\(config.baseURL)/messages")!
-        AppLogger.request("Claude", "POST \(url.absoluteString)", details: "Model: \(config.model)")
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -65,6 +64,12 @@ final class AnthropicProvider: AIProvider {
 
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
 
+        // Log pretty-printed request payload
+        if let prettyBody = try? JSONSerialization.data(withJSONObject: body, options: [.prettyPrinted, .sortedKeys]),
+           let bodyStr = String(data: prettyBody, encoding: .utf8) {
+            AppLogger.request("Claude", "POST \(url.absoluteString)", details: bodyStr)
+        }
+
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -89,7 +94,11 @@ final class AnthropicProvider: AIProvider {
             throw AIProviderError.invalidResponse
         }
 
-        AppLogger.response("Claude", "200 OK", details: "Content length: \(text.count) chars")
+        // Log pretty-printed response
+        if let prettyResponse = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]),
+           let responseStr = String(data: prettyResponse, encoding: .utf8) {
+            AppLogger.response("Claude", "200 OK", details: responseStr)
+        }
         return TranslationResponse(
             translatedText: text.trimmingCharacters(in: .whitespacesAndNewlines),
             detectedLanguage: nil

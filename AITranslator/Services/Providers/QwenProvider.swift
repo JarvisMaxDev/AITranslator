@@ -32,7 +32,6 @@ final class QwenProvider: AIProvider {
         let (authHeader, baseURL, modelName) = try await getAuthConfig()
 
         let url = URL(string: "\(baseURL)/chat/completions")!
-        AppLogger.request("Qwen", "POST \(url.absoluteString)", details: "Model: \(modelName)")
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -48,10 +47,17 @@ final class QwenProvider: AIProvider {
             ],
             "temperature": 0.3,
             "max_tokens": 4096,
-            "enable_thinking": false  // Disable thinking/reasoning for fast translation
+            "enable_thinking": false
         ]
 
-        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let bodyData = try JSONSerialization.data(withJSONObject: body)
+        urlRequest.httpBody = bodyData
+
+        // Log pretty-printed request payload
+        if let prettyBody = try? JSONSerialization.data(withJSONObject: body, options: [.prettyPrinted, .sortedKeys]),
+           let bodyStr = String(data: prettyBody, encoding: .utf8) {
+            AppLogger.request("Qwen", "POST \(url.absoluteString)", details: bodyStr)
+        }
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
@@ -78,7 +84,11 @@ final class QwenProvider: AIProvider {
             throw AIProviderError.invalidResponse
         }
 
-        AppLogger.response("Qwen", "200 OK", details: "Content length: \(content.count) chars")
+        // Log pretty-printed response
+        if let prettyResponse = try? JSONSerialization.data(withJSONObject: json, options: .prettyPrinted),
+           let responseStr = String(data: prettyResponse, encoding: .utf8) {
+            AppLogger.response("Qwen", "200 OK", details: "Response:\n\(responseStr)")
+        }
         return TranslationResponse(
             translatedText: content.trimmingCharacters(in: .whitespacesAndNewlines),
             detectedLanguage: nil
