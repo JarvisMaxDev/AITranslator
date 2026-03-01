@@ -11,6 +11,7 @@
 "language.search" = "Search...";
 "language.recent" = "Recent";
 "language.all" = "All Languages";
+"language.auto_short" = "auto";
 
 /* Actions */
 "action.copy" = "Copy";

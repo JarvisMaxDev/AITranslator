@@ -55,7 +55,8 @@ struct TranslatorView: View {
             // Source language selector
             LanguageSelectorView(
                 selectedLanguage: $viewModel.sourceLanguage,
-                showAutoDetect: true
+                showAutoDetect: true,
+                detectedLanguage: viewModel.detectedLanguage
             )
 
             // Swap button

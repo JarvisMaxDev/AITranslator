@@ -4,15 +4,38 @@ import SwiftUI
 struct LanguageSelectorView: View {
     @Binding var selectedLanguage: Language
     let showAutoDetect: Bool
+    /// When source is Auto Detect, this shows the detected language
+    var detectedLanguage: Language? = nil
     @State private var searchText = ""
     @State private var isPresented = false
+
+    /// Display language: detected if auto, otherwise selected
+    private var displayLanguage: Language {
+        if selectedLanguage.code == "auto", let detected = detectedLanguage {
+            return detected
+        }
+        return selectedLanguage
+    }
+
+    /// Whether to show "(auto)" suffix
+    private var isAutoDetected: Bool {
+        selectedLanguage.code == "auto" && detectedLanguage != nil
+    }
 
     var body: some View {
         Button(action: { isPresented.toggle() }) {
             HStack(spacing: 6) {
-                Text(selectedLanguage.flag)
-                Text(selectedLanguage.name)
-                    .fontWeight(.medium)
+                Text(displayLanguage.flag)
+                if isAutoDetected {
+                    Text("\(displayLanguage.name)")
+                        .fontWeight(.medium)
+                    Text("(\(NSLocalizedString("language.auto_short", comment: "auto")))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(selectedLanguage.name)
+                        .fontWeight(.medium)
+                }
                 Image(systemName: "chevron.down")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
