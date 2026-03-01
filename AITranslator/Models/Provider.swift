@@ -39,7 +39,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
     var defaultModel: String {
         switch self {
         case .qwen: return "coder-model"
-        case .anthropic: return "claude-3-5-haiku-20241022"
+        case .anthropic: return "claude-sonnet-4-20250514"
         }
     }
 
@@ -47,7 +47,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
     var apiKeyModel: String {
         switch self {
         case .qwen: return "qwen-plus"
-        case .anthropic: return "claude-3-5-haiku-20241022"
+        case .anthropic: return "claude-sonnet-4-20250514"
         }
     }
 
@@ -70,9 +70,8 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
             ]
         case .anthropic:
             return [
-                ("claude-3-5-haiku-20241022", "Haiku 3.5 · Fast"),
-                ("claude-sonnet-4-20250514", "Sonnet 4 · Balanced"),
-                ("claude-opus-4-20250514", "Opus 4 · Best"),
+                ("claude-sonnet-4-20250514", "Sonnet 4 · Fast"),
+                ("claude-4-opus-20250514", "Opus 4 · Best"),
             ]
         }
     }
