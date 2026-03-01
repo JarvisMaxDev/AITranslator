@@ -81,7 +81,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
 }
 
 /// Configuration for an AI provider instance
-struct ProviderConfig: Codable, Identifiable {
+struct ProviderConfig: Codable, Identifiable, Equatable {
     var id: String
     var type: ProviderType
     var name: String

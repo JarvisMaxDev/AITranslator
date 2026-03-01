@@ -123,6 +123,15 @@ struct TranslatorView: View {
                     Text(provider.name)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    let models = settingsViewModel.modelsForProvider(provider.id)
+                    if let modelName = models.first(where: { $0.id == provider.model })?.name {
+                        Text("·")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        Text(modelName)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             } else {
                 HStack(spacing: 4) {

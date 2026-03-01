@@ -3,11 +3,15 @@ import SwiftUI
 /// Settings view for managing AI providers
 struct SettingsView: View {
     @EnvironmentObject var settingsViewModel: SettingsViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var showAddProvider = false
     @State private var editingProvider: ProviderConfig?
     @State private var apiKeyInput = ""
     @State private var showAPIKeyInput = false
     @State private var apiKeyTargetId: String?
+    /// Draft copy of provider configs for pending changes
+    @State private var draftConfigs: [ProviderConfig] = []
+    @State private var hasChanges = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -68,8 +72,40 @@ struct SettingsView: View {
                     .padding(20)
                 }
             }
+
+            // Save / Cancel bar
+            if hasChanges {
+                Divider()
+                HStack {
+                    Spacer()
+                    Button(NSLocalizedString("settings.cancel", comment: "Cancel")) {
+                        draftConfigs = settingsViewModel.providerConfigs
+                        hasChanges = false
+                    }
+                    .keyboardShortcut(.escape, modifiers: [])
+
+                    Button(NSLocalizedString("settings.save", comment: "Save")) {
+                        for draft in draftConfigs {
+                            settingsViewModel.updateProvider(draft)
+                        }
+                        hasChanges = false
+                    }
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+            }
         }
         .frame(minWidth: 500, minHeight: 400)
+        .onAppear {
+            draftConfigs = settingsViewModel.providerConfigs
+        }
+        .onChange(of: settingsViewModel.providerConfigs) { newConfigs in
+            if !hasChanges {
+                draftConfigs = newConfigs
+            }
+        }
         .sheet(isPresented: $showAddProvider) {
             addProviderSheet
         }
@@ -175,11 +211,14 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                     Picker("", selection: Binding(
-                        get: { config.model },
+                        get: {
+                            draftConfigs.first(where: { $0.id == config.id })?.model ?? config.model
+                        },
                         set: { newModel in
-                            var updated = config
-                            updated.model = newModel
-                            settingsViewModel.updateProvider(updated)
+                            if let idx = draftConfigs.firstIndex(where: { $0.id == config.id }) {
+                                draftConfigs[idx].model = newModel
+                                hasChanges = true
+                            }
                         }
                     )) {
                         ForEach(settingsViewModel.modelsForProvider(config.id), id: \.id) { model in
