@@ -10,16 +10,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var popupHostingController: NSHostingController<AnyView>?
     private var lastControlCTime: Date?
     private var eventMonitor: Any?
-    private var settingsViewModel: SettingsViewModel?
+    /// Shared SettingsViewModel — injected from AITranslatorApp after launch
+    var settingsViewModel: SettingsViewModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
+        requestAccessibilityIfNeeded()
         setupGlobalHotkey()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
+        }
+    }
+
+    // MARK: - Accessibility Permissions
+
+    private func requestAccessibilityIfNeeded() {
+        let trusted = AXIsProcessTrustedWithOptions(
+            [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        )
+        if !trusted {
+            print("[Hotkey] Accessibility not granted — global hotkeys will not work until enabled in System Settings.")
         }
     }
 
@@ -102,7 +115,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             existing.close()
         }
 
-        let settingsVM = SettingsViewModel()
+        // Use shared SettingsViewModel, or create one as fallback
+        let settingsVM = settingsViewModel ?? SettingsViewModel()
         let translatorVM = TranslatorViewModel(settingsViewModel: settingsVM)
         translatorVM.sourceText = clipboardText
 

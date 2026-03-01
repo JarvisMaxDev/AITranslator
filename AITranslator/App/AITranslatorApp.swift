@@ -10,6 +10,8 @@ struct AITranslatorApp: App {
         let settings = SettingsViewModel()
         _settingsViewModel = StateObject(wrappedValue: settings)
         _translatorViewModel = StateObject(wrappedValue: TranslatorViewModel(settingsViewModel: settings))
+        // Share SettingsViewModel with AppDelegate for popup translator
+        appDelegate.settingsViewModel = settings
     }
 
     var body: some Scene {
