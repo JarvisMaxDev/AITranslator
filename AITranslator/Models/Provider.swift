@@ -39,7 +39,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
     var defaultModel: String {
         switch self {
         case .qwen: return "coder-model"
-        case .anthropic: return "claude-sonnet-4-20250514"
+        case .anthropic: return "claude-3-5-haiku-20241022"
         }
     }
 
@@ -47,7 +47,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
     var apiKeyModel: String {
         switch self {
         case .qwen: return "qwen-plus"
-        case .anthropic: return "claude-sonnet-4-20250514"
+        case .anthropic: return "claude-3-5-haiku-20241022"
         }
     }
 
