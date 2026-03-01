@@ -267,15 +267,17 @@ final class OAuthService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: String] = [
-            "grant_type": "refresh_token",
-            "refresh_token": refreshToken,
-            "client_id": qwenClientId
+        // Qwen requires form-urlencoded, not JSON
+        var components = URLComponents()
+        components.queryItems = [
+            URLQueryItem(name: "grant_type", value: "refresh_token"),
+            URLQueryItem(name: "client_id", value: qwenClientId),
+            URLQueryItem(name: "refresh_token", value: refreshToken)
         ]
+        request.httpBody = components.query?.data(using: .utf8)
 
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
@@ -290,7 +292,8 @@ final class OAuthService: ObservableObject {
             accessToken: accessToken,
             refreshToken: json["refresh_token"] as? String ?? refreshToken,
             expiresAt: (json["expires_in"] as? TimeInterval).map { Date().addingTimeInterval($0) },
-            tokenType: json["token_type"] as? String ?? "Bearer"
+            tokenType: json["token_type"] as? String ?? "Bearer",
+            resourceURL: json["resource_url"] as? String ?? tokens.resourceURL
         )
 
         try keychain.saveOAuthTokens(newTokens, forProvider: providerId)
