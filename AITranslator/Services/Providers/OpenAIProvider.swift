@@ -70,7 +70,8 @@ final class OpenAIProvider: AIProvider {
             "input": [
                 ["type": "message", "role": "user", "content": request.sourceText]
             ],
-            "stream": false
+            "stream": false,
+            "store": false
         ]
 
         let bodyData = try JSONSerialization.data(withJSONObject: body)
