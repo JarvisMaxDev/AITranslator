@@ -78,8 +78,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             { (_, event, userData) -> OSStatus in
                 guard let userData = userData else { return OSStatus(eventNotHandledErr) }
                 let delegate = userData.assumingMemoryBound(to: AppDelegate.self).pointee
+                // Read selected text NOW, before our app takes focus
+                let selectedText = AppDelegate.readSelectedText()
+                let clipboard = NSPasteboard.general.string(forType: .string) ?? ""
+                let text = selectedText ?? clipboard
+                print("[Hotkey] Captured — selected: \(selectedText != nil ? selectedText!.prefix(30) : "nil"), clipboard: \(clipboard.prefix(30))")
                 DispatchQueue.main.async {
-                    delegate.handleHotkey()
+                    delegate.handleHotkey(text: text)
                 }
                 return noErr
             },
@@ -103,10 +108,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Hotkey Action
 
-    func handleHotkey() {
-        // Read selected text directly from the active app via Accessibility API
-        let selectedText = getSelectedText() ?? NSPasteboard.general.string(forType: .string) ?? ""
-
+    func handleHotkey(text: String) {
         // Show main window
         NSApp.activate(ignoringOtherApps: true)
         if let window = NSApp.windows.first(where: { $0.title.contains("Translator") }) {
@@ -114,8 +116,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Set text and auto-translate
-        if let vm = translatorViewModel, !selectedText.isEmpty {
-            vm.sourceText = selectedText
+        if let vm = translatorViewModel, !text.isEmpty {
+            vm.sourceText = text
             Task {
                 await vm.translate()
             }
@@ -123,26 +125,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Read selected text from the focused element via Accessibility API
-    private func getSelectedText() -> String? {
+    /// Called from callback thread (not main) to capture before focus changes
+    static func readSelectedText() -> String? {
+        guard AXIsProcessTrusted() else { return nil }
+
         let systemWide = AXUIElementCreateSystemWide()
 
-        // Get the focused application
         var focusedApp: AnyObject?
-        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success else {
-            return nil
-        }
+        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success else { return nil }
 
-        // Get the focused UI element
         var focusedElement: AnyObject?
-        guard AXUIElementCopyAttributeValue(focusedApp as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success else {
-            return nil
-        }
+        guard AXUIElementCopyAttributeValue(focusedApp as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success else { return nil }
 
-        // Get the selected text
         var selectedText: AnyObject?
-        guard AXUIElementCopyAttributeValue(focusedElement as! AXUIElement, kAXSelectedTextAttribute as CFString, &selectedText) == .success else {
-            return nil
-        }
+        guard AXUIElementCopyAttributeValue(focusedElement as! AXUIElement, kAXSelectedTextAttribute as CFString, &selectedText) == .success else { return nil }
 
         let text = selectedText as? String
         return (text?.isEmpty == false) ? text : nil

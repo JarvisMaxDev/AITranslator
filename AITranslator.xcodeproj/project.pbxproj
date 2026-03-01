@@ -249,7 +249,7 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					7A31873D6C09E496A52401B1 = {
-						DevelopmentTeam = "";
+						DevelopmentTeam = GM23JF485V;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -338,7 +338,7 @@
 				CODE_SIGN_ENTITLEMENTS = AITranslator/Resources/AITranslator.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = GM23JF485V;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AITranslator/Resources/Info.plist;
@@ -415,7 +415,7 @@
 				CODE_SIGN_ENTITLEMENTS = AITranslator/Resources/AITranslator.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = GM23JF485V;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AITranslator/Resources/Info.plist;
