@@ -28,7 +28,8 @@
 | Консоль отладки | AppLogger + ConsoleView (⌘L), JSON payload/response |
 
 ### 🔄 В работе
-- [x] OpenAI / GPT провайдер ✅
+- [x] OpenAI / GPT провайдер (API key + OAuth через ChatGPT подписку) ✅
+- [x] UI/UX улучшения (панели, анимации, статус-бар) ✅
 
 ### 📋 Следующие задачи
 
