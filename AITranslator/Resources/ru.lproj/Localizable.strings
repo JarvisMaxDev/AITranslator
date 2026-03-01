@@ -1,0 +1,54 @@
+/* Main Translator */
+"translator.enter_text" = "Введите текст для перевода...";
+"translator.translation" = "Перевод";
+"translator.translate" = "Перевести";
+"translator.translating" = "Перевожу...";
+"translator.swap_languages" = "Поменять языки местами";
+"translator.settings" = "Настройки";
+
+/* Languages */
+"language.auto_detect" = "Автоопределение";
+
+/* Actions */
+"action.copy" = "Копировать";
+"action.clear" = "Очистить";
+"action.cancel" = "Отмена";
+"action.save" = "Сохранить";
+
+/* Status */
+"status.no_provider" = "Провайдер не настроен";
+
+/* Settings */
+"settings.title" = "Настройки";
+"settings.providers" = "AI-провайдеры";
+"settings.add_provider" = "Добавить провайдер";
+"settings.choose_provider" = "Выберите провайдер";
+"settings.connect" = "Подключить";
+"settings.disconnect" = "Отключить";
+"settings.connected" = "Подключён";
+"settings.not_connected" = "Не подключён";
+"settings.active" = "Активный";
+"settings.use" = "Использовать";
+"settings.api_key" = "API-ключ";
+"settings.enter_api_key" = "Введите API-ключ";
+"settings.no_providers" = "Нет настроенных провайдеров";
+"settings.add_provider_hint" = "Добавьте AI-провайдера, чтобы начать переводить";
+"settings.device_code_title" = "Введите этот код в браузере:";
+"settings.waiting_auth" = "Ожидание авторизации...";
+"settings.connecting" = "Подключение...";
+"settings.qwen_api_key_hint" = "Получите API-ключ на dashscope.console.aliyun.com";
+"settings.anthropic_api_key_hint" = "Получите API-ключ на console.anthropic.com";
+
+/* Menu */
+"menu.show_translator" = "Показать переводчик";
+"menu.settings" = "Настройки...";
+"menu.quit" = "Выйти";
+
+/* Errors */
+"error.not_authenticated" = "Не авторизован. Подключите провайдера в Настройках.";
+"error.invalid_response" = "Некорректный ответ от провайдера";
+"error.token_expired" = "Сессия истекла. Подключитесь заново.";
+"error.no_provider_selected" = "Провайдер не выбран. Откройте Настройки.";
+"error.provider_not_found" = "Провайдер не найден";
+"error.translation_failed" = "Ошибка перевода";
+"error.qwen_cli_not_found" = "Qwen CLI не найден. Установите 'qwen-code' CLI и выполните '/auth', или используйте API-ключ.";

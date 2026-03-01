@@ -1,0 +1,54 @@
+/* Main Translator */
+"translator.enter_text" = "Enter text to translate...";
+"translator.translation" = "Translation";
+"translator.translate" = "Translate";
+"translator.translating" = "Translating...";
+"translator.swap_languages" = "Swap languages";
+"translator.settings" = "Settings";
+
+/* Languages */
+"language.auto_detect" = "Auto Detect";
+
+/* Actions */
+"action.copy" = "Copy";
+"action.clear" = "Clear";
+"action.cancel" = "Cancel";
+"action.save" = "Save";
+
+/* Status */
+"status.no_provider" = "No provider configured";
+
+/* Settings */
+"settings.title" = "Settings";
+"settings.providers" = "AI Providers";
+"settings.add_provider" = "Add Provider";
+"settings.choose_provider" = "Choose Provider";
+"settings.connect" = "Connect";
+"settings.disconnect" = "Disconnect";
+"settings.connected" = "Connected";
+"settings.not_connected" = "Not connected";
+"settings.active" = "Active";
+"settings.use" = "Use";
+"settings.api_key" = "API Key";
+"settings.enter_api_key" = "Enter API Key";
+"settings.no_providers" = "No providers configured";
+"settings.add_provider_hint" = "Add an AI provider to start translating";
+"settings.device_code_title" = "Enter this code in your browser:";
+"settings.waiting_auth" = "Waiting for authentication...";
+"settings.connecting" = "Connecting...";
+"settings.qwen_api_key_hint" = "Get your API key at dashscope.console.aliyun.com";
+"settings.anthropic_api_key_hint" = "Get your API key at console.anthropic.com";
+
+/* Menu */
+"menu.show_translator" = "Show Translator";
+"menu.settings" = "Settings...";
+"menu.quit" = "Quit";
+
+/* Errors */
+"error.not_authenticated" = "Not authenticated. Please connect a provider in Settings.";
+"error.invalid_response" = "Invalid response from provider";
+"error.token_expired" = "Session expired. Please reconnect.";
+"error.no_provider_selected" = "No provider selected. Go to Settings to add one.";
+"error.provider_not_found" = "Provider not found";
+"error.translation_failed" = "Translation failed";
+"error.qwen_cli_not_found" = "Qwen CLI not found. Install 'qwen-code' CLI and run '/auth' first, or use an API key.";
