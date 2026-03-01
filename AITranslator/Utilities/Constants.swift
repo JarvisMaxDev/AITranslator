@@ -14,5 +14,7 @@ enum Constants {
         static let selectedProviderId = "selectedProviderId"
         static let sourceLanguageCode = "sourceLanguageCode"
         static let targetLanguageCode = "targetLanguageCode"
+        static let hotkeyKeyCode = "hotkeyKeyCode"
+        static let hotkeyModifiers = "hotkeyModifiers"
     }
 }

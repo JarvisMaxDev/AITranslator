@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		011B31EB3462030844C3C723 /* PopupTranslatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80911CED3D4A997B1AF4D1C8 /* PopupTranslatorView.swift */; };
+		3848751BC558022596D4F3AB /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220A2D33BE8B6110A90F23FB /* HotkeyRecorderView.swift */; };
 		3B14EDF6124F59357F55AA24 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 70DB81D2CFA95B4BE5EB22EE /* Localizable.strings */; };
 		471698BA8E57239DE4314CFD /* LanguageSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1346DCDAF2A1E41C377366C3 /* LanguageSelectorView.swift */; };
 		4F2EDD07859CD05FA4021B91 /* TranslationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 627D26851CCFC69E3D8C1075 /* TranslationPanel.swift */; };
@@ -41,6 +42,7 @@
 		1346DCDAF2A1E41C377366C3 /* LanguageSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageSelectorView.swift; sourceTree = "<group>"; };
 		1714D57A93A8012819835994 /* AITranslator.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AITranslator.entitlements; sourceTree = "<group>"; };
 		175B1FD3F69D8F7B30C4485C /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		220A2D33BE8B6110A90F23FB /* HotkeyRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyRecorderView.swift; sourceTree = "<group>"; };
 		22B4F9C3B18040BB6074D790 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		24C12507A3E2B0B129ADB8E0 /* LocalCallbackServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCallbackServer.swift; sourceTree = "<group>"; };
 		482A50FD172606D842B28BA2 /* OAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthService.swift; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 		32F693385C387CB0F5648B62 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				220A2D33BE8B6110A90F23FB /* HotkeyRecorderView.swift */,
 				627D26851CCFC69E3D8C1075 /* TranslationPanel.swift */,
 			);
 			path = Components;
@@ -296,6 +299,7 @@
 				B0225AF9796940D1936FF676 /* AnthropicProvider.swift in Sources */,
 				651CD65A468036F7D42DE965 /* AppDelegate.swift in Sources */,
 				68C35F5F3A52FF8F29CAA73D /* Constants.swift in Sources */,
+				3848751BC558022596D4F3AB /* HotkeyRecorderView.swift in Sources */,
 				60C7C3DF9F242601F977D68F /* KeychainService.swift in Sources */,
 				5241BEF9EB0EBEBE93ACBDA0 /* Language.swift in Sources */,
 				471698BA8E57239DE4314CFD /* LanguageSelectorView.swift in Sources */,

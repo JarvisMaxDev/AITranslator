@@ -1,4 +1,5 @@
 import SwiftUI
+import Carbon.HIToolbox
 
 /// Settings view for managing AI providers
 struct SettingsView: View {
@@ -12,6 +13,15 @@ struct SettingsView: View {
     /// Draft copy of provider configs for pending changes
     @State private var draftConfigs: [ProviderConfig] = []
     @State private var hasChanges = false
+    /// Hotkey configuration
+    @State private var hotkeyKeyCode: UInt32 = {
+        let saved = UserDefaults.standard.integer(forKey: Constants.UserDefaultsKeys.hotkeyKeyCode)
+        return saved > 0 ? UInt32(saved) : UInt32(kVK_ANSI_C)
+    }()
+    @State private var hotkeyModifiers: UInt32 = {
+        let saved = UserDefaults.standard.integer(forKey: Constants.UserDefaultsKeys.hotkeyModifiers)
+        return saved > 0 ? UInt32(saved) : UInt32(cmdKey | shiftKey)
+    }()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -67,6 +77,23 @@ struct SettingsView: View {
                         // Device code auth in progress
                         if settingsViewModel.isAuthenticating {
                             authInProgressView
+                        }
+                    }
+                    .padding(20)
+
+                    // Hotkey section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(NSLocalizedString("settings.hotkey", comment: "Global Hotkey"))
+                            .font(.headline)
+
+                        HStack {
+                            Text(NSLocalizedString("settings.hotkey_translate", comment: "Translate selected text"))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            HotkeyRecorderView(
+                                keyCode: $hotkeyKeyCode,
+                                modifiers: $hotkeyModifiers
+                            )
                         }
                     }
                     .padding(20)

@@ -68,9 +68,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
-    // MARK: - Global Hotkey (⌘⇧C via Carbon API)
+    // MARK: - Global Hotkey (configurable, default ⌘⇧C)
 
     private func setupGlobalHotkey() {
+        // Listen for hotkey changes from Settings
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(hotkeySettingsChanged),
+            name: .hotkeyChanged,
+            object: nil
+        )
+
+        registerHotkey()
+    }
+
+    @objc private func hotkeySettingsChanged() {
+        registerHotkey()
+    }
+
+    private func registerHotkey() {
+        // Unregister old hotkey if any
+        if let ref = hotKeyRef {
+            UnregisterEventHotKey(ref)
+            hotKeyRef = nil
+        }
+
         let hotKeyID = EventHotKeyID(signature: OSType(0x5452_4E53), // "TRNS"
                                       id: 1)
 
@@ -85,7 +107,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             { (_, event, userData) -> OSStatus in
                 guard let userData = userData else { return OSStatus(eventNotHandledErr) }
                 let delegate = userData.assumingMemoryBound(to: AppDelegate.self).pointee
-                // Read selected text NOW, before our app takes focus
                 let selectedText = AppDelegate.readSelectedText()
                 let clipboard = NSPasteboard.general.string(forType: .string) ?? ""
                 let text = selectedText ?? clipboard
@@ -98,18 +119,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             1, &eventType, handlerPtr, nil
         )
 
-        let modifiers = UInt32(cmdKey | shiftKey)
-        let keyCode = UInt32(kVK_ANSI_C)
+        // Read from UserDefaults or use default ⌘⇧C
+        let keyCode: UInt32
+        let modifiers: UInt32
+
+        let savedKeyCode = UserDefaults.standard.integer(forKey: Constants.UserDefaultsKeys.hotkeyKeyCode)
+        let savedModifiers = UserDefaults.standard.integer(forKey: Constants.UserDefaultsKeys.hotkeyModifiers)
+
+        if savedKeyCode > 0 && savedModifiers > 0 {
+            keyCode = UInt32(savedKeyCode)
+            modifiers = UInt32(savedModifiers)
+        } else {
+            keyCode = UInt32(kVK_ANSI_C)
+            modifiers = UInt32(cmdKey | shiftKey)
+        }
 
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(keyCode, modifiers, hotKeyID,
                                           GetApplicationEventTarget(), 0, &ref)
 
+        let displayName = HotkeyRecorderView.hotkeyDisplayString(keyCode: keyCode, modifiers: modifiers)
         if status == noErr {
             hotKeyRef = ref
-            print("[Hotkey] ⌘⇧C registered successfully")
+            print("[Hotkey] \(displayName) registered successfully")
         } else {
-            print("[Hotkey] Failed to register ⌘⇧C hotkey: \(status)")
+            print("[Hotkey] Failed to register \(displayName): \(status)")
         }
     }
 

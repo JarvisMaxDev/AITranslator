@@ -42,6 +42,11 @@
 "settings.save" = "Save";
 "settings.cancel" = "Cancel";
 
+/* Hotkey */
+"settings.hotkey" = "Global Hotkey";
+"settings.hotkey_translate" = "Translate selected text";
+"settings.hotkey_press" = "Press shortcut...";
+
 /* Menu */
 "menu.show_translator" = "Show Translator";
 "menu.settings" = "Settings...";
