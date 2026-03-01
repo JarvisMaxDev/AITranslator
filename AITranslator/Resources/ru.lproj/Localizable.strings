@@ -5,6 +5,8 @@
 "translator.translating" = "Перевожу...";
 "translator.swap_languages" = "Поменять языки местами";
 "translator.settings" = "Настройки";
+"panel.source" = "Исходный текст";
+"panel.translation" = "Перевод";
 
 /* Languages */
 "language.auto_detect" = "Автоопределение";
@@ -15,7 +17,9 @@
 
 /* Actions */
 "action.copy" = "Копировать";
+"action.copied" = "Скопировано!";
 "action.clear" = "Очистить";
+"action.paste" = "Вставить";
 "action.cancel" = "Отмена";
 "action.save" = "Сохранить";
 

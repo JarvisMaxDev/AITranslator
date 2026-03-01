@@ -6,6 +6,8 @@ struct TranslatorView: View {
     @EnvironmentObject var settingsViewModel: SettingsViewModel
     @Environment(\.openWindow) private var openWindow
 
+    @State private var swapRotation: Double = 0
+
     var body: some View {
         VStack(spacing: 0) {
             // Toolbar area
@@ -13,10 +15,8 @@ struct TranslatorView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
 
-            Divider()
-
             // Translation panels
-            HSplitView {
+            HStack(spacing: 12) {
                 // Source panel
                 TranslationPanel(
                     text: $viewModel.sourceText,
@@ -25,7 +25,6 @@ struct TranslatorView: View {
                     isSource: true,
                     isLoading: false
                 )
-                .frame(minWidth: 300)
 
                 // Target panel
                 TranslationPanel(
@@ -35,17 +34,17 @@ struct TranslatorView: View {
                     isSource: false,
                     isLoading: viewModel.isTranslating
                 )
-                .frame(minWidth: 300)
             }
-
-            Divider()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
 
             // Status bar
             statusBar
                 .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.bottom, 10)
+                .padding(.top, 4)
         }
-        .background(.background)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     // MARK: - Toolbar
@@ -59,11 +58,22 @@ struct TranslatorView: View {
                 detectedLanguage: viewModel.detectedLanguage
             )
 
-            // Swap button
-            Button(action: { viewModel.swapLanguages() }) {
+            // Swap button with rotation animation
+            Button(action: {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    swapRotation += 180
+                    viewModel.swapLanguages()
+                }
+            }) {
                 Image(systemName: "arrow.left.arrow.right")
-                    .font(.title3)
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(swapRotation))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(.quaternary.opacity(0.5))
+                    )
             }
             .buttonStyle(.plain)
             .help(NSLocalizedString("translator.swap_languages", comment: "Swap languages"))
@@ -86,6 +96,9 @@ struct TranslatorView: View {
                         ProgressView()
                             .controlSize(.small)
                             .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 14))
                     }
                     Text(NSLocalizedString("translator.translate", comment: "Translate"))
                         .fontWeight(.semibold)
@@ -103,7 +116,12 @@ struct TranslatorView: View {
                 openWindow(id: "settings")
             }) {
                 Image(systemName: "gearshape")
-                    .font(.title3)
+                    .font(.system(size: 14))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(.quaternary.opacity(0.5))
+                    )
             }
             .buttonStyle(.plain)
             .keyboardShortcut(",", modifiers: .command)
@@ -114,16 +132,18 @@ struct TranslatorView: View {
     // MARK: - Status Bar
 
     private var statusBar: some View {
-        HStack {
-            // Provider indicator
+        HStack(spacing: 12) {
+            // Provider indicator with icon
             if let provider = settingsViewModel.activeProvider {
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(provider.isAuthenticated ? Color.green : Color.orange)
-                        .frame(width: 8, height: 8)
+                HStack(spacing: 6) {
+                    Image(systemName: provider.type.iconSystemName)
+                        .font(.caption)
+                        .foregroundStyle(provider.isAuthenticated ? .green : .orange)
+
                     Text(provider.name)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
                     let models = settingsViewModel.modelsForProvider(provider.id)
                     if let modelName = models.first(where: { $0.id == provider.model })?.name {
                         Text("·")
@@ -133,12 +153,25 @@ struct TranslatorView: View {
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
+
+                    // Auth method badge
+                    if provider.authMethod == .oauth {
+                        Text("OAuth")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(
+                                Capsule()
+                                    .fill(.quaternary)
+                            )
+                    }
                 }
             } else {
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 8, height: 8)
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
                     Text(NSLocalizedString("status.no_provider", comment: "No provider configured"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -148,20 +181,28 @@ struct TranslatorView: View {
             Spacer()
 
             // Character count
-            Text("\(viewModel.characterCount) / \(Constants.maxTextLength)")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            HStack(spacing: 4) {
+                Image(systemName: "character.cursor.ibeam")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+                Text("\(viewModel.characterCount) / \(Constants.maxTextLength)")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+            }
 
             // Error indicator
             if let error = viewModel.error {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
                         .foregroundStyle(.red)
                     Text(error)
                         .font(.caption)
                         .foregroundStyle(.red)
                         .lineLimit(1)
                 }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
     }

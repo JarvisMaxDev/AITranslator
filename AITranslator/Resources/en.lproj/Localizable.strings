@@ -5,6 +5,8 @@
 "translator.translating" = "Translating...";
 "translator.swap_languages" = "Swap languages";
 "translator.settings" = "Settings";
+"panel.source" = "Source";
+"panel.translation" = "Translation";
 
 /* Languages */
 "language.auto_detect" = "Auto Detect";
@@ -15,7 +17,9 @@
 
 /* Actions */
 "action.copy" = "Copy";
+"action.copied" = "Copied!";
 "action.clear" = "Clear";
+"action.paste" = "Paste";
 "action.cancel" = "Cancel";
 "action.save" = "Save";
 
