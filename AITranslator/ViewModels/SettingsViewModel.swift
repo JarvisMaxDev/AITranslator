@@ -23,9 +23,11 @@ final class SettingsViewModel: ObservableObject {
     func fetchModels(forProvider id: String) {
         guard let config = providerConfigs.first(where: { $0.id == id }) else { return }
 
-        // Only fetch for authenticated providers with OAuth tokens
-        guard let tokens = keychain.getOAuthTokens(forProvider: id) else {
-            // Use hardcoded fallback
+        let oauthTokens = keychain.getOAuthTokens(forProvider: id)
+        let apiKey = keychain.getAPIKey(forProvider: id)
+
+        // Need at least one auth method, otherwise use hardcoded fallback
+        guard oauthTokens != nil || apiKey != nil else {
             fetchedModels[id] = config.type.availableModels
             return
         }
@@ -33,14 +35,29 @@ final class SettingsViewModel: ObservableObject {
         Task {
             switch config.type {
             case .anthropic:
-                let models = await ModelService.shared.fetchAnthropicModels(token: tokens.accessToken)
+                if let tokens = oauthTokens {
+                    let models = await ModelService.shared.fetchAnthropicModels(token: tokens.accessToken)
+                    if !models.isEmpty {
+                        fetchedModels[id] = models
+                    } else {
+                        fetchedModels[id] = config.type.availableModels
+                    }
+                } else {
+                    fetchedModels[id] = config.type.availableModels
+                }
+            case .openai:
+                let models = await ModelService.shared.fetchOpenAIModels(
+                    token: oauthTokens?.accessToken,
+                    apiKey: apiKey,
+                    baseURL: config.baseURL
+                )
                 if !models.isEmpty {
                     fetchedModels[id] = models
                 } else {
                     fetchedModels[id] = config.type.availableModels
                 }
-            case .qwen, .openai, .gemini:
-                // Use hardcoded model lists
+            case .qwen, .gemini:
+                // Use hardcoded model lists (no /v1/models API available)
                 fetchedModels[id] = config.type.availableModels
             }
         }
