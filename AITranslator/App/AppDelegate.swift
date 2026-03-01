@@ -13,7 +13,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
+        requestAccessibility()
         setupGlobalHotkey()
+    }
+
+    private func requestAccessibility() {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        let trusted = AXIsProcessTrustedWithOptions(options)
+        print("[Hotkey] Accessibility trusted: \(trusted)")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
