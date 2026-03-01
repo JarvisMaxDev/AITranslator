@@ -22,6 +22,13 @@ struct SettingsView: View {
         let saved = UserDefaults.standard.integer(forKey: Constants.UserDefaultsKeys.hotkeyModifiers)
         return saved > 0 ? UInt32(saved) : UInt32(cmdKey | shiftKey)
     }()
+    /// Current app language
+    @State private var appLanguage: String = {
+        let langs = UserDefaults.standard.stringArray(forKey: "AppleLanguages") ?? []
+        let first = langs.first ?? Locale.preferredLanguages.first ?? "en"
+        return first.hasPrefix("ru") ? "ru" : "en"
+    }()
+    @State private var showRestartAlert = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -97,6 +104,31 @@ struct SettingsView: View {
                         }
                     }
                     .padding(20)
+
+                    // App language section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(NSLocalizedString("settings.app_language", comment: "App Language"))
+                            .font(.headline)
+
+                        HStack {
+                            Text(NSLocalizedString("settings.interface_language", comment: "Interface language"))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Picker("", selection: $appLanguage) {
+                                Text("English").tag("en")
+                                Text("Русский").tag("ru")
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
+                            .frame(width: 180)
+                            .onChange(of: appLanguage) { newValue in
+                                UserDefaults.standard.set([newValue], forKey: "AppleLanguages")
+                                UserDefaults.standard.synchronize()
+                                showRestartAlert = true
+                            }
+                        }
+                    }
+                    .padding(20)
                 }
             }
 
@@ -138,6 +170,22 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showAPIKeyInput) {
             apiKeyInputSheet
+        }
+        .alert(NSLocalizedString("settings.restart_title", comment: "Restart Required"),
+               isPresented: $showRestartAlert) {
+            Button(NSLocalizedString("settings.restart_now", comment: "Restart Now")) {
+                // Relaunch the app
+                let url = URL(fileURLWithPath: Bundle.main.resourcePath!)
+                let path = url.deletingLastPathComponent().deletingLastPathComponent().absoluteString
+                let task = Process()
+                task.launchPath = "/usr/bin/open"
+                task.arguments = [path]
+                task.launch()
+                NSApp.terminate(nil)
+            }
+            Button(NSLocalizedString("settings.restart_later", comment: "Later"), role: .cancel) {}
+        } message: {
+            Text(NSLocalizedString("settings.restart_message", comment: "Restart to apply language change"))
         }
     }
 

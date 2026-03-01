@@ -2,43 +2,44 @@
 
 Нативное macOS-приложение (Swift/SwiftUI) для перевода текста через AI с глобальным хоткеем.
 
-## MVP (Текущая фаза)
+## MVP ✅
 
-### Сделано ✅
 - Двухпанельный интерфейс переводчика (источник → перевод)
-- Qwen провайдер (OAuth device code flow + API key)
-- Claude провайдер (OAuth PKCE + API key)
-- Динамическая загрузка моделей с API (`/v1/models` для обоих провайдеров)
-- Выбор модели в настройках (сохраняется)
-- Настройки как нативное macOS окно
-- Выбор языка с поиском + флаги + недавние языки наверху
-- Сохранение/Отмена в настройках (всегда видны, disabled когда нет изменений)
-- Файловое хранение OAuth токенов (без Keychain-промптов)
-- Иконка в статус-баре + меню
-- Локализация (RU/EN) — по языку системы
-- Глобальный хоткей ⌘⇧C (настраиваемый в Настройках)
+- Qwen + Claude провайдеры (OAuth + API key)
+- Загрузка моделей с API (`/v1/models`)
+- Настройки: нативное окно, выбор модели, Save/Cancel (всегда видны)
+- Выбор языка с поиском + флаги + недавние языки
+- Авто-определение языка из текста (NLLanguageRecognizer)
+- ⇄ Swap языков/текстов (работает с Auto Detect)
+- Глобальный хоткей ⌘⇧C (настраиваемый)
 - Auto-refresh токенов (Qwen + Claude)
 - Cmd+Enter для перевода
 - Понятные сообщения об ошибках
+- Локализация (RU/EN) по языку системы
 
 ---
 
-## v1.1 — Полировка
-- [ ] Автозагрузка при входе в систему (hidden, без окна)
-- [ ] Переключатель языка апки в настройках (RU/EN)
-- [ ] Double ⌘C (с Developer certificate для постоянного Accessibility)
-- [ ] Авто-определение языка из текста
-- [ ] История переводов (последние N)
-- [ ] Анимация при смене языков
+## Следующие задачи
 
-## v1.2 — Больше провайдеров
-- [ ] OpenAI / GPT
-- [ ] Google Gemini
-- [ ] Кастомный OpenAI-совместимый эндпоинт
-- [ ] Настройки модели по провайдеру (temperature и т.д.)
+### Сейчас
+- [ ] Переключатель языка апки в настройках (RU/EN)
+- [ ] OpenAI / GPT провайдер
+- [ ] Google Gemini провайдер (API key через AI Studio)
+
+### Потом
+- [ ] Кастомный OpenAI-совместимый эндпоинт (Ollama, LM Studio, OpenRouter — ввод URL + ключ)
+- [ ] Настройки модели (temperature, max_tokens, стиль перевода) по провайдеру
+
+### Может быть
+- [ ] История переводов (последние N)
+
+### При установке в систему
+- [ ] Автозагрузка при входе в систему (hidden, без окна)
+
+---
 
 ## v2.0 — Продвинутые функции
-- [ ] Перевод документов (вставить файл, перевести абзацы)
+- [ ] Перевод документов
 - [ ] OCR (скриншот → текст → перевод)
 - [ ] TTS (озвучка перевода)
 - [ ] Браузерное расширение (Chrome/Safari)
@@ -50,45 +51,20 @@
 
 ```
 AITranslator/
-├── App/
-│   ├── AITranslatorApp.swift      # Точка входа, сцены, общие ViewModels
-│   └── AppDelegate.swift          # Хоткей, статус-бар, меню
-├── Models/
-│   ├── Provider.swift             # ProviderType, ProviderConfig, модели
-│   ├── Language.swift             # Список языков + флаги
-│   └── Translation.swift          # Request/Response модели
+├── App/           # Точка входа, AppDelegate (хоткей, статус-бар)
+├── Models/        # Provider, Language, Translation
 ├── Services/
-│   ├── ModelService.swift         # Динамическая загрузка моделей из API
-│   ├── Providers/
-│   │   ├── AIProvider.swift       # Протокол
-│   │   ├── QwenProvider.swift     # OpenAI-совместимый + auto-refresh
-│   │   └── AnthropicProvider.swift # Claude Messages API + auto-refresh
-│   ├── Auth/
-│   │   ├── OAuthService.swift     # OAuth потоки + refresh token
-│   │   ├── KeychainService.swift  # Хранение учётных данных
-│   │   └── LocalCallbackServer.swift # Localhost callback для PKCE
-│   └── TranslationService.swift   # Оркестратор
-├── ViewModels/
-│   ├── TranslatorViewModel.swift
-│   └── SettingsViewModel.swift
-├── Views/
-│   ├── MainWindow/
-│   │   ├── TranslatorView.swift
-│   │   ├── TranslationPanel.swift
-│   │   └── LanguageSelectorView.swift # С секцией "Недавние"
-│   ├── Settings/
-│   │   └── SettingsView.swift
-│   └── Components/
-│       └── HotkeyRecorderView.swift   # Запись комбинации клавиш
-└── Resources/
-    ├── en.lproj/Localizable.strings
-    └── ru.lproj/Localizable.strings
+│   ├── Providers/ # AIProvider протокол, Qwen, Anthropic
+│   ├── Auth/      # OAuth (device code, PKCE), Keychain, Callback
+│   ├── ModelService, TranslationService
+├── ViewModels/    # Translator, Settings
+├── Views/         # MainWindow, Settings, Components (HotkeyRecorder)
+└── Resources/     # en/ru Localizable.strings
 ```
 
-## Ключевые технические решения
-- **OAuth токены**: хранятся в `~/.aitranslator/credentials/` — без промптов
-- **Qwen refresh**: `Content-Type: application/x-www-form-urlencoded` (не JSON!)
-- **Claude API**: `anthropic-beta: oauth-2025-04-20` для OAuth; refresh через JSON
-- **Хоткей**: Carbon `RegisterEventHotKey` + AXUIElement для чтения выделения
-- **Модели**: загружаются динамически из `/v1/models`, есть hardcoded fallback
-- **Development certificate**: Team ID `GM23JF485V` — стабильная подпись
+## Ключевые решения
+- **Токены**: `~/.aitranslator/credentials/` (без Keychain-промптов)
+- **Qwen refresh**: `x-www-form-urlencoded`; **Claude**: JSON
+- **Хоткей**: Carbon `RegisterEventHotKey` + AXUIElement
+- **Модели**: `/v1/models` API + hardcoded fallback
+- **Certificate**: Team ID `GM23JF485V`

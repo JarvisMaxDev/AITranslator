@@ -50,6 +50,14 @@
 "settings.hotkey_translate" = "Translate selected text";
 "settings.hotkey_press" = "Press shortcut...";
 
+/* App Language */
+"settings.app_language" = "App Language";
+"settings.interface_language" = "Interface language";
+"settings.restart_title" = "Restart Required";
+"settings.restart_message" = "The app needs to restart to apply the language change.";
+"settings.restart_now" = "Restart Now";
+"settings.restart_later" = "Later";
+
 /* Menu */
 "menu.show_translator" = "Show Translator";
 "menu.settings" = "Settings...";

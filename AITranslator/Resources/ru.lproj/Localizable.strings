@@ -50,6 +50,14 @@
 "settings.hotkey_translate" = "Перевести выделенный текст";
 "settings.hotkey_press" = "Нажмите комбинацию...";
 
+/* App Language */
+"settings.app_language" = "Язык приложения";
+"settings.interface_language" = "Язык интерфейса";
+"settings.restart_title" = "Нужен перезапуск";
+"settings.restart_message" = "Приложение необходимо перезапустить для смены языка.";
+"settings.restart_now" = "Перезапустить";
+"settings.restart_later" = "Позже";
+
 /* Menu */
 "menu.show_translator" = "Показать переводчик";
 "menu.settings" = "Настройки...";
