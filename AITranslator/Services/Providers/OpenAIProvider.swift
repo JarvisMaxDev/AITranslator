@@ -59,18 +59,18 @@ final class OpenAIProvider: AIProvider {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("Bearer \(currentTokens.accessToken)", forHTTPHeaderField: "Authorization")
-        urlRequest.timeoutInterval = 60
+        urlRequest.timeoutInterval = 120
 
         let systemPrompt = buildSystemPrompt(request: request)
 
-        // Responses API format — input must be array of message objects
+        // Responses API requires stream=true and store=false
         let body: [String: Any] = [
             "model": config.model,
             "instructions": systemPrompt,
             "input": [
                 ["type": "message", "role": "user", "content": request.sourceText]
             ],
-            "stream": false,
+            "stream": true,
             "store": false
         ]
 
@@ -83,7 +83,8 @@ final class OpenAIProvider: AIProvider {
             AppLogger.request("OpenAI·OAuth", "POST \(url.absoluteString)", details: bodyStr)
         }
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        // Use URLSession bytes for SSE streaming
+        let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw AIProviderError.invalidResponse
@@ -95,45 +96,47 @@ final class OpenAIProvider: AIProvider {
         }
 
         guard httpResponse.statusCode == 200 else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            // Read error body from stream
+            var errorData = Data()
+            for try await byte in bytes { errorData.append(byte) }
+            let errorBody = String(data: errorData, encoding: .utf8) ?? "Unknown error"
             AppLogger.error("OpenAI", "Codex API error (\(httpResponse.statusCode))", details: errorBody)
             throw AIProviderError.apiError("OpenAI Codex API error (\(httpResponse.statusCode)): \(errorBody)")
         }
 
-        // Parse Responses API response
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw AIProviderError.invalidResponse
-        }
+        // Parse SSE stream — collect text deltas
+        var translatedText = ""
+        for try await line in bytes.lines {
+            // SSE format: "data: {...}" or "data: [DONE]"
+            guard line.hasPrefix("data: ") else { continue }
+            let jsonStr = String(line.dropFirst(6))
+            if jsonStr == "[DONE]" { break }
 
-        // Log response
-        if let prettyResponse = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]),
-           let responseStr = String(data: prettyResponse, encoding: .utf8) {
-            AppLogger.response("OpenAI·OAuth", "200 OK", details: responseStr)
-        }
+            guard let jsonData = jsonStr.data(using: .utf8),
+                  let event = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                  let eventType = event["type"] as? String else { continue }
 
-        // Responses API returns output in various formats, try to extract text
-        let translatedText: String
-        if let output = json["output"] as? [[String: Any]] {
-            // Array of output items — find text content
-            let texts = output.compactMap { item -> String? in
-                if let content = item["content"] as? [[String: Any]] {
-                    return content.compactMap { $0["text"] as? String }.joined()
+            switch eventType {
+            case "response.output_text.delta":
+                if let delta = event["delta"] as? String {
+                    translatedText += delta
                 }
-                if let text = item["text"] as? String { return text }
-                return nil
+            case "response.completed":
+                // Final event — extract output_text if available
+                if let resp = event["response"] as? [String: Any],
+                   let outputText = resp["output_text"] as? String {
+                    translatedText = outputText
+                }
+            case "response.failed":
+                let errorMsg = (event["error"] as? [String: Any])?["message"] as? String ?? "Unknown error"
+                AppLogger.error("OpenAI", "Codex stream error", details: errorMsg)
+                throw AIProviderError.apiError("OpenAI Codex error: \(errorMsg)")
+            default:
+                break
             }
-            translatedText = texts.joined(separator: "\n")
-        } else if let outputText = json["output_text"] as? String {
-            translatedText = outputText
-        } else if let choices = json["choices"] as? [[String: Any]],
-                  let first = choices.first,
-                  let message = first["message"] as? [String: Any],
-                  let content = message["content"] as? String {
-            // Fallback: standard chat completions format
-            translatedText = content
-        } else {
-            throw AIProviderError.invalidResponse
         }
+
+        AppLogger.response("OpenAI·OAuth", "Stream complete", details: "Result: \(translatedText.prefix(200))")
 
         return TranslationResponse(
             translatedText: translatedText.trimmingCharacters(in: .whitespacesAndNewlines),
