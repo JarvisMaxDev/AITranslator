@@ -1,14 +1,26 @@
 import Foundation
 import Security
 
-/// Secure credential storage using macOS Keychain
+/// Credential storage: API keys in Keychain, OAuth tokens in file system
 final class KeychainService {
     static let shared = KeychainService()
     private let servicePrefix = "com.aitranslator"
 
-    private init() {}
+    /// Directory for storing OAuth credentials
+    private var credentialsDir: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".aitranslator/credentials")
+    }
 
-    // MARK: - API Keys
+    private init() {
+        // Ensure credentials directory exists
+        try? FileManager.default.createDirectory(
+            at: credentialsDir,
+            withIntermediateDirectories: true
+        )
+    }
+
+    // MARK: - API Keys (Keychain)
 
     /// Save an API key for a provider
     func saveAPIKey(_ key: String, forProvider providerId: String) throws {
@@ -20,7 +32,6 @@ final class KeychainService {
             kSecValueData as String: data
         ]
 
-        // Delete existing item first
         SecItemDelete(query as CFDictionary)
 
         let status = SecItemAdd(query as CFDictionary, nil)
@@ -49,56 +60,55 @@ final class KeychainService {
         return String(data: data, encoding: .utf8)
     }
 
-    // MARK: - OAuth Tokens
+    // MARK: - OAuth Tokens (File-based to avoid Keychain prompts during development)
 
-    /// Save OAuth tokens (access + refresh) for a provider
-    func saveOAuthTokens(_ tokens: OAuthTokens, forProvider providerId: String) throws {
-        let data = try JSONEncoder().encode(tokens)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "\(servicePrefix).oauth",
-            kSecAttrAccount as String: providerId,
-            kSecValueData as String: data
-        ]
-
-        SecItemDelete(query as CFDictionary)
-
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw KeychainError.saveFailed(status)
-        }
+    /// File path for provider's OAuth tokens
+    private func oauthFilePath(forProvider providerId: String) -> URL {
+        credentialsDir.appendingPathComponent("\(providerId)_oauth.json")
     }
 
-    /// Retrieve OAuth tokens for a provider
+    /// Save OAuth tokens for a provider (to file, not Keychain)
+    func saveOAuthTokens(_ tokens: OAuthTokens, forProvider providerId: String) throws {
+        let data = try JSONEncoder().encode(tokens)
+        try data.write(to: oauthFilePath(forProvider: providerId), options: [.atomic])
+
+        // Set file permissions to owner-only (0600)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: oauthFilePath(forProvider: providerId).path
+        )
+    }
+
+    /// Retrieve OAuth tokens for a provider (from file)
     func getOAuthTokens(forProvider providerId: String) -> OAuthTokens? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "\(servicePrefix).oauth",
-            kSecAttrAccount as String: providerId,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-        guard status == errSecSuccess, let data = result as? Data else {
+        let path = oauthFilePath(forProvider: providerId)
+        guard FileManager.default.fileExists(atPath: path.path),
+              let data = try? Data(contentsOf: path) else {
             return nil
         }
-
         return try? JSONDecoder().decode(OAuthTokens.self, from: data)
     }
 
     /// Delete all credentials for a provider
     func deleteCredentials(forProvider providerId: String) {
-        for service in ["\(servicePrefix).apikey", "\(servicePrefix).oauth"] {
-            let query: [String: Any] = [
-                kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: service,
-                kSecAttrAccount as String: providerId
-            ]
-            SecItemDelete(query as CFDictionary)
-        }
+        // Delete API key from Keychain
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "\(servicePrefix).apikey",
+            kSecAttrAccount as String: providerId
+        ]
+        SecItemDelete(query as CFDictionary)
+
+        // Delete OAuth token file
+        try? FileManager.default.removeItem(at: oauthFilePath(forProvider: providerId))
+
+        // Also clean up old Keychain OAuth entry if it exists
+        let oauthQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "\(servicePrefix).oauth",
+            kSecAttrAccount as String: providerId
+        ]
+        SecItemDelete(oauthQuery as CFDictionary)
     }
 }
 

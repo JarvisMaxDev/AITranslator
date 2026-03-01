@@ -96,84 +96,148 @@ final class OAuthService: ObservableObject {
         }
     }
 
-    // MARK: - Anthropic OAuth (OAuth2 PKCE)
+    // MARK: - Anthropic/Claude OAuth (Authorization Code + PKCE via localhost)
 
-    /// Start Anthropic OAuth using PKCE flow.
-    /// Note: Anthropic restricts OAuth tokens to Claude Code only.
-    /// API key is the recommended alternative.
+    /// Claude Code OAuth constants (from Claude Code CLI source)
+    private let claudeAuthURL = "https://claude.ai/oauth/authorize"
+    private let claudeTokenURL = "https://claude.ai/v1/oauth/token"
+    private let claudeClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+    private let claudeScopes = "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers"
+
+    /// Start Anthropic OAuth using the same flow as Claude Code CLI:
+    /// 1. Start localhost HTTP server on random port
+    /// 2. Open browser to claude.ai/oauth/authorize with PKCE
+    /// 3. Wait for callback on localhost with auth code
+    /// 4. Exchange code for tokens
     func startAnthropicOAuth(providerId: String) async -> Bool {
         isAuthenticating = true
         authError = nil
 
-        let codeVerifier = generateCodeVerifier()
-        let codeChallenge = generateCodeChallenge(from: codeVerifier)
-        let state = UUID().uuidString
+        do {
+            // Step 1: Generate PKCE pair and state
+            let codeVerifier = generateCodeVerifier()
+            let codeChallenge = generateCodeChallenge(from: codeVerifier)
+            let state = generateCodeVerifier() // Random state
 
-        var components = URLComponents(string: "https://platform.claude.com/oauth/authorize")
-        components?.queryItems = [
-            URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "client_id", value: "aitranslator"),
-            URLQueryItem(name: "redirect_uri", value: "aitranslator://auth/callback"),
-            URLQueryItem(name: "scope", value: "user:inference"),
-            URLQueryItem(name: "state", value: state),
-            URLQueryItem(name: "code_challenge", value: codeChallenge),
-            URLQueryItem(name: "code_challenge_method", value: "S256")
-        ]
+            // Step 2: Start localhost HTTP server and get port
+            let callbackServer = LocalCallbackServer()
+            let port = try await callbackServer.start()
+            let redirectURI = "http://localhost:\(port)/callback"
 
-        if let url = components?.url {
-            NSWorkspace.shared.open(url)
-        } else {
-            authError = "Failed to build Anthropic auth URL"
+            // Step 3: Build auth URL and open browser
+            var components = URLComponents(string: claudeAuthURL)!
+            components.queryItems = [
+                URLQueryItem(name: "code", value: "true"),
+                URLQueryItem(name: "client_id", value: claudeClientId),
+                URLQueryItem(name: "response_type", value: "code"),
+                URLQueryItem(name: "redirect_uri", value: redirectURI),
+                URLQueryItem(name: "scope", value: claudeScopes),
+                URLQueryItem(name: "code_challenge", value: codeChallenge),
+                URLQueryItem(name: "code_challenge_method", value: "S256"),
+                URLQueryItem(name: "state", value: state)
+            ]
+
+            if let url = components.url {
+                NSWorkspace.shared.open(url)
+            }
+
+            // Step 4: Wait for callback (blocks until browser redirects back)
+            let callbackResult = try await callbackServer.waitForCallback(timeoutSeconds: 120)
+            callbackServer.stop()
+
+            // Step 5: Verify state
+            guard callbackResult.state == state else {
+                authError = "OAuth state mismatch"
+                isAuthenticating = false
+                return false
+            }
+
+            guard let code = callbackResult.code else {
+                authError = callbackResult.error ?? "No authorization code received"
+                isAuthenticating = false
+                return false
+            }
+
+            // Step 6: Exchange code for tokens
+            let success = await exchangeAnthropicCode(
+                code: code,
+                codeVerifier: codeVerifier,
+                redirectURI: redirectURI,
+                providerId: providerId
+            )
+            return success
+
+        } catch {
+            authError = error.localizedDescription
             isAuthenticating = false
             return false
         }
-
-        UserDefaults.standard.set(codeVerifier, forKey: "anthropic_code_verifier_\(providerId)")
-        UserDefaults.standard.set(state, forKey: "anthropic_state_\(providerId)")
-
-        return true // Will complete asynchronously via URL callback
     }
 
-    /// Handle OAuth callback URL from browser (for Anthropic PKCE flow)
+    /// Handle OAuth callback URL (legacy - kept for compatibility but not used with localhost flow)
     func handleCallback(url: URL, providerId: String) async -> Bool {
-        guard url.scheme == "aitranslator",
-              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let queryItems = components.queryItems else {
-            authError = "Invalid callback URL"
+        return false
+    }
+
+    /// Exchange authorization code for tokens using Claude's token endpoint
+    private func exchangeAnthropicCode(
+        code: String,
+        codeVerifier: String,
+        redirectURI: String,
+        providerId: String
+    ) async -> Bool {
+        guard let url = URL(string: claudeTokenURL) else {
+            authError = "Invalid token URL"
             isAuthenticating = false
             return false
         }
 
-        let code = queryItems.first(where: { $0.name == "code" })?.value
-        let state = queryItems.first(where: { $0.name == "state" })?.value
-        let error = queryItems.first(where: { $0.name == "error" })?.value
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if let error {
-            authError = "Authentication failed: \(error)"
+        let body: [String: String] = [
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirectURI,
+            "client_id": claudeClientId,
+            "code_verifier": codeVerifier
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                authError = "Invalid response"
+                isAuthenticating = false
+                return false
+            }
+
+            guard httpResponse.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let accessToken = json["access_token"] as? String else {
+                let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
+                authError = "Token exchange failed (\(httpResponse.statusCode)): \(errorBody)"
+                isAuthenticating = false
+                return false
+            }
+
+            let tokens = OAuthTokens(
+                accessToken: accessToken,
+                refreshToken: json["refresh_token"] as? String,
+                expiresAt: (json["expires_in"] as? TimeInterval).map { Date().addingTimeInterval($0) },
+                tokenType: json["token_type"] as? String ?? "Bearer"
+            )
+
+            try keychain.saveOAuthTokens(tokens, forProvider: providerId)
+            isAuthenticating = false
+            return true
+        } catch {
+            authError = "Token exchange failed: \(error.localizedDescription)"
             isAuthenticating = false
             return false
         }
-
-        let savedState = UserDefaults.standard.string(forKey: "anthropic_state_\(providerId)")
-        guard state == savedState else {
-            authError = "OAuth state mismatch"
-            isAuthenticating = false
-            return false
-        }
-
-        guard let code else {
-            authError = "No authorization code received"
-            isAuthenticating = false
-            return false
-        }
-
-        let codeVerifier = UserDefaults.standard.string(forKey: "anthropic_code_verifier_\(providerId)")
-
-        return await exchangeAnthropicCode(
-            code: code,
-            codeVerifier: codeVerifier,
-            providerId: providerId
-        )
     }
 
     // MARK: - API Key (Fallback)
@@ -503,6 +567,9 @@ enum OAuthError: LocalizedError {
     case serverError(String)
     case expired
     case cancelled
+    case serverStartFailed(String)
+    case timeout
+    case noDataReceived
 
     var errorDescription: String? {
         switch self {
@@ -518,6 +585,12 @@ enum OAuthError: LocalizedError {
         case .cancelled:
             return NSLocalizedString("error.auth_cancelled",
                 comment: "Authentication cancelled")
+        case .serverStartFailed(let reason):
+            return "Failed to start callback server: \(reason)"
+        case .timeout:
+            return "Authentication timed out. Please try again."
+        case .noDataReceived:
+            return "No data received from browser callback"
         }
     }
 }

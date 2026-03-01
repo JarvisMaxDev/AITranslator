@@ -14,16 +14,17 @@ struct TranslationPanel: View {
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
                     Text(placeholder)
+                        .font(.body)
                         .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 12)
+                        .padding(.leading, 9)
+                        .padding(.top, 12)
                 }
 
                 if isSource {
                     TextEditor(text: $text)
                         .font(.body)
                         .scrollContentBackground(.hidden)
-                        .padding(6)
+                        .padding(4)
                 } else {
                     if isLoading {
                         VStack {

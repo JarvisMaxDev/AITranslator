@@ -4,7 +4,7 @@ import SwiftUI
 struct TranslatorView: View {
     @EnvironmentObject var viewModel: TranslatorViewModel
     @EnvironmentObject var settingsViewModel: SettingsViewModel
-    @State private var showSettings = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
@@ -46,11 +46,6 @@ struct TranslatorView: View {
                 .padding(.vertical, 8)
         }
         .background(.background)
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(settingsViewModel)
-                .frame(minWidth: 500, minHeight: 400)
-        }
     }
 
     // MARK: - Toolbar
@@ -103,11 +98,14 @@ struct TranslatorView: View {
             .disabled(viewModel.sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isTranslating)
 
             // Settings button
-            Button(action: { showSettings.toggle() }) {
+            Button(action: {
+                openWindow(id: "settings")
+            }) {
                 Image(systemName: "gearshape")
                     .font(.title3)
             }
             .buttonStyle(.plain)
+            .keyboardShortcut(",", modifiers: .command)
             .help(NSLocalizedString("translator.settings", comment: "Settings"))
         }
     }

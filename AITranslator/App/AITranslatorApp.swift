@@ -26,10 +26,13 @@ struct AITranslatorApp: App {
         .windowToolbarStyle(.unified(showsTitle: true))
         .defaultSize(width: 900, height: 600)
 
-        Settings {
+        Window(NSLocalizedString("settings.title", comment: "Settings"), id: "settings") {
             SettingsView()
                 .environmentObject(settingsViewModel)
+                .frame(minWidth: 500, minHeight: 400)
         }
+        .defaultSize(width: 550, height: 500)
+        .windowResizability(.contentSize)
     }
 
     private func handleOAuthCallback(url: URL) {

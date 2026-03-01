@@ -11,17 +11,6 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text(NSLocalizedString("settings.title", comment: "Settings"))
-                    .font(.title2)
-                    .fontWeight(.bold)
-                Spacer()
-            }
-            .padding(20)
-
-            Divider()
-
             // Provider list
             ScrollView {
                 VStack(spacing: 12) {

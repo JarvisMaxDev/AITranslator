@@ -8,6 +8,7 @@
 
 /* Languages */
 "language.auto_detect" = "Auto Detect";
+"language.search" = "Search...";
 
 /* Actions */
 "action.copy" = "Copy";

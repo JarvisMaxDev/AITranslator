@@ -8,6 +8,7 @@
 
 /* Languages */
 "language.auto_detect" = "Автоопределение";
+"language.search" = "Поиск...";
 
 /* Actions */
 "action.copy" = "Копировать";

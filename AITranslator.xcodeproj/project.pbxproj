@@ -29,6 +29,7 @@
 		F0A11E29AD3846FC213DDAC2 /* TranslatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73016844C79CDDDF58BD8B3F /* TranslatorViewModel.swift */; };
 		F1DD709C42EFD236E926217C /* TranslationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14885D5F11B7413D17510A9 /* TranslationService.swift */; };
 		F93D57D773F9293B0C35D209 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 22B4F9C3B18040BB6074D790 /* Assets.xcassets */; };
+		FC27C2FD89E80D6782B93869 /* LocalCallbackServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24C12507A3E2B0B129ADB8E0 /* LocalCallbackServer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +41,7 @@
 		1714D57A93A8012819835994 /* AITranslator.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AITranslator.entitlements; sourceTree = "<group>"; };
 		175B1FD3F69D8F7B30C4485C /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		22B4F9C3B18040BB6074D790 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		24C12507A3E2B0B129ADB8E0 /* LocalCallbackServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCallbackServer.swift; sourceTree = "<group>"; };
 		482A50FD172606D842B28BA2 /* OAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthService.swift; sourceTree = "<group>"; };
 		4FBE33C2478CB7650365239A /* QwenProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QwenProvider.swift; sourceTree = "<group>"; };
 		627D26851CCFC69E3D8C1075 /* TranslationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPanel.swift; sourceTree = "<group>"; };
@@ -101,6 +103,7 @@
 		5DE60ADD17BA496959097953 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
+				24C12507A3E2B0B129ADB8E0 /* LocalCallbackServer.swift */,
 				482A50FD172606D842B28BA2 /* OAuthService.swift */,
 			);
 			path = Auth;
@@ -293,6 +296,7 @@
 				60C7C3DF9F242601F977D68F /* KeychainService.swift in Sources */,
 				5241BEF9EB0EBEBE93ACBDA0 /* Language.swift in Sources */,
 				471698BA8E57239DE4314CFD /* LanguageSelectorView.swift in Sources */,
+				FC27C2FD89E80D6782B93869 /* LocalCallbackServer.swift in Sources */,
 				8AEE7918902A0557D5687612 /* OAuthService.swift in Sources */,
 				011B31EB3462030844C3C723 /* PopupTranslatorView.swift in Sources */,
 				A5588EDDA4894E370A5C1B71 /* PopupViewModel.swift in Sources */,
