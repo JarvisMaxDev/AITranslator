@@ -63,11 +63,13 @@ final class OpenAIProvider: AIProvider {
 
         let systemPrompt = buildSystemPrompt(request: request)
 
-        // Responses API format
+        // Responses API format — input must be array of message objects
         let body: [String: Any] = [
             "model": config.model,
             "instructions": systemPrompt,
-            "input": request.sourceText,
+            "input": [
+                ["type": "message", "role": "user", "content": request.sourceText]
+            ],
             "stream": false
         ]
 

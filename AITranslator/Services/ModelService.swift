@@ -73,9 +73,7 @@ final class ModelService {
             return models.compactMap { model in
                 guard let slug = model["slug"] as? String else { return nil }
                 let displayName = model["display_name"] as? String ?? slug
-                let description = model["description"] as? String ?? ""
-                let name = description.isEmpty ? displayName : "\(displayName) · \(description)"
-                return (id: slug, name: name)
+                return (id: slug, name: displayName)
             }
         } catch {
             AppLogger.error("Models", "Failed to fetch Codex models", details: error.localizedDescription)
