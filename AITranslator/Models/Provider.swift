@@ -57,6 +57,25 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .anthropic: return true
         }
     }
+
+    /// Available models for selection (id, displayName)
+    var availableModels: [(id: String, name: String)] {
+        switch self {
+        case .qwen:
+            return [
+                ("coder-model", "Qwen Coder (OAuth)"),
+                ("qwen-plus", "Qwen Plus"),
+                ("qwen-turbo", "Qwen Turbo"),
+                ("qwen-max", "Qwen Max"),
+            ]
+        case .anthropic:
+            return [
+                ("claude-3-5-haiku-20241022", "Haiku 3.5 · Fast"),
+                ("claude-sonnet-4-20250514", "Sonnet 4 · Balanced"),
+                ("claude-opus-4-20250514", "Opus 4 · Best"),
+            ]
+        }
+    }
 }
 
 /// Configuration for an AI provider instance

@@ -174,9 +174,21 @@ struct SettingsView: View {
                     Text("•")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
-                    Text(config.model)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                    Picker("", selection: Binding(
+                        get: { config.model },
+                        set: { newModel in
+                            var updated = config
+                            updated.model = newModel
+                            settingsViewModel.updateProvider(updated)
+                        }
+                    )) {
+                        ForEach(config.type.availableModels, id: \.id) { model in
+                            Text(model.name).tag(model.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .controlSize(.small)
+                    .fixedSize()
                 }
             }
 
