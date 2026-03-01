@@ -67,7 +67,7 @@ struct TranslatorView: View {
             }
             .buttonStyle(.plain)
             .help(NSLocalizedString("translator.swap_languages", comment: "Swap languages"))
-            .disabled(viewModel.sourceLanguage.code == "auto")
+            .disabled(viewModel.sourceLanguage.code == "auto" && viewModel.detectedLanguage == nil)
 
             // Target language selector
             LanguageSelectorView(

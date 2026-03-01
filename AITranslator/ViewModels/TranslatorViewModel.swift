@@ -108,11 +108,16 @@ final class TranslatorViewModel: ObservableObject {
 
     /// Swap source and target languages and texts
     func swapLanguages() {
-        guard sourceLanguage.code != "auto" else { return }
-
-        let tempLang = sourceLanguage
-        sourceLanguage = targetLanguage
-        targetLanguage = tempLang
+        if sourceLanguage.code == "auto" {
+            // When Auto Detect: use detected language as new target
+            guard let detected = detectedLanguage else { return }
+            targetLanguage = detected
+            // Keep sourceLanguage as auto — it will re-detect from new text
+        } else {
+            let tempLang = sourceLanguage
+            sourceLanguage = targetLanguage
+            targetLanguage = tempLang
+        }
 
         let tempText = sourceText
         sourceText = translatedText
