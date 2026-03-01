@@ -70,8 +70,11 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
             ]
         case .anthropic:
             return [
-                ("claude-sonnet-4-20250514", "Sonnet 4 · Fast"),
-                ("claude-4-opus-20250514", "Opus 4 · Best"),
+                ("claude-sonnet-4-20250514", "Sonnet 4"),
+                ("claude-haiku-4-5-20251001", "Haiku 4.5 · Fast"),
+                ("claude-sonnet-4-5-20250929", "Sonnet 4.5 · Balanced"),
+                ("claude-4-opus-20250514", "Opus 4"),
+                ("claude-opus-4-5-20251101", "Opus 4.5 · Best"),
             ]
         }
     }

@@ -182,13 +182,16 @@ struct SettingsView: View {
                             settingsViewModel.updateProvider(updated)
                         }
                     )) {
-                        ForEach(config.type.availableModels, id: \.id) { model in
+                        ForEach(settingsViewModel.modelsForProvider(config.id), id: \.id) { model in
                             Text(model.name).tag(model.id)
                         }
                     }
                     .labelsHidden()
                     .controlSize(.small)
                     .fixedSize()
+                    .onAppear {
+                        settingsViewModel.fetchModels(forProvider: config.id)
+                    }
                 }
             }
 

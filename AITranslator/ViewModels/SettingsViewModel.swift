@@ -9,12 +9,50 @@ final class SettingsViewModel: ObservableObject {
     @Published var isAuthenticating = false
     @Published var authUserCode: String?
     @Published var authError: String?
+    /// Dynamically fetched models per provider ID
+    @Published var fetchedModels: [String: [(id: String, name: String)]] = [:]
 
     let oauthService = OAuthService()
     private let keychain = KeychainService.shared
 
     init() {
         loadConfigs()
+    }
+
+    /// Fetch available models for a provider from its API
+    func fetchModels(forProvider id: String) {
+        guard let config = providerConfigs.first(where: { $0.id == id }) else { return }
+
+        // Only fetch for authenticated providers with OAuth tokens
+        guard let tokens = keychain.getOAuthTokens(forProvider: id) else {
+            // Use hardcoded fallback
+            fetchedModels[id] = config.type.availableModels
+            return
+        }
+
+        Task {
+            switch config.type {
+            case .anthropic:
+                let models = await ModelService.shared.fetchAnthropicModels(token: tokens.accessToken)
+                if !models.isEmpty {
+                    fetchedModels[id] = models
+                } else {
+                    fetchedModels[id] = config.type.availableModels
+                }
+            case .qwen:
+                // Qwen doesn't have a models endpoint; use hardcoded list
+                fetchedModels[id] = config.type.availableModels
+            }
+        }
+    }
+
+    /// Get models for a provider (fetched or fallback to hardcoded)
+    func modelsForProvider(_ id: String) -> [(id: String, name: String)] {
+        if let fetched = fetchedModels[id], !fetched.isEmpty {
+            return fetched
+        }
+        guard let config = providerConfigs.first(where: { $0.id == id }) else { return [] }
+        return config.type.availableModels
     }
 
     // MARK: - Provider Management

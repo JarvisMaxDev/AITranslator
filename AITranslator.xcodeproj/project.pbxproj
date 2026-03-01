@@ -23,6 +23,7 @@
 		8AEE7918902A0557D5687612 /* OAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 482A50FD172606D842B28BA2 /* OAuthService.swift */; };
 		97F9995E47BF6DA250F20B7D /* TranslatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09CAAD8D8EE1A6A5091416CA /* TranslatorView.swift */; };
 		A5588EDDA4894E370A5C1B71 /* PopupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC7456FD22A0EA0D24EE1FF /* PopupViewModel.swift */; };
+		A9E45AB4FE205AA4E5F033D3 /* ModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B555EE2B08A08539440FAB28 /* ModelService.swift */; };
 		B0225AF9796940D1936FF676 /* AnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB91F217857DC697004B034 /* AnthropicProvider.swift */; };
 		D2B14BD6377370F347812BC8 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79DEAC48A94A23215D8AD940 /* SettingsViewModel.swift */; };
 		E93005480CBE8E46CAE1D148 /* Translation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD147362A8A851D3B7EDE514 /* Translation.swift */; };
@@ -55,6 +56,7 @@
 		A14885D5F11B7413D17510A9 /* TranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationService.swift; sourceTree = "<group>"; };
 		A1B205FD44A746E0B21AFC4A /* Language.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Language.swift; sourceTree = "<group>"; };
 		AB83B26766FDA602C3289053 /* AITranslatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITranslatorApp.swift; sourceTree = "<group>"; };
+		B555EE2B08A08539440FAB28 /* ModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelService.swift; sourceTree = "<group>"; };
 		BBC7456FD22A0EA0D24EE1FF /* PopupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupViewModel.swift; sourceTree = "<group>"; };
 		C2EF75F340398B77F6B9AB5D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EAB91F217857DC697004B034 /* AnthropicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicProvider.swift; sourceTree = "<group>"; };
@@ -165,6 +167,7 @@
 			isa = PBXGroup;
 			children = (
 				8A3B01A08A419F5D2D9A2B59 /* KeychainService.swift */,
+				B555EE2B08A08539440FAB28 /* ModelService.swift */,
 				A14885D5F11B7413D17510A9 /* TranslationService.swift */,
 				5DE60ADD17BA496959097953 /* Auth */,
 				A91AB9387E3DBF84779036F4 /* Providers */,
@@ -297,6 +300,7 @@
 				5241BEF9EB0EBEBE93ACBDA0 /* Language.swift in Sources */,
 				471698BA8E57239DE4314CFD /* LanguageSelectorView.swift in Sources */,
 				FC27C2FD89E80D6782B93869 /* LocalCallbackServer.swift in Sources */,
+				A9E45AB4FE205AA4E5F033D3 /* ModelService.swift in Sources */,
 				8AEE7918902A0557D5687612 /* OAuthService.swift in Sources */,
 				011B31EB3462030844C3C723 /* PopupTranslatorView.swift in Sources */,
 				A5588EDDA4894E370A5C1B71 /* PopupViewModel.swift in Sources */,
