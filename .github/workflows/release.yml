@@ -8,22 +8,20 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: macos-latest
+    runs-on: macos-15
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         
-      - name: Install dependencies
-        run: |
-          brew install xcodegen create-dmg
+      - name: Install XcodeGen
+        run: brew install xcodegen
 
       - name: Generate Xcode Project
         run: xcodegen generate
         
-      - name: Build and Archive
+      - name: Build Release
         run: |
-          # Build without requiring local development certificates
           xcodebuild -project AITranslator.xcodeproj \
             -scheme AITranslator \
             -configuration Release \
@@ -33,27 +31,21 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="" \
             clean build \
             SYMROOT="$(pwd)/build"
-            
-      - name: Verify build output
-        run: ls -la build/Release/
 
       - name: Create DMG
         run: |
           cd build/Release
-          # Since the app uses an ad-hoc signature, we just package it as is.
-          # The user may need to run `xattr -cr /Applications/AI\ Translator.app` on their Mac
-          # to clear the quarantine flag, or right-click -> Open.
-          create-dmg \
-            --volname "AI Translator" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --icon "AI Translator.app" 175 190 \
-            --hide-extension "AI Translator.app" \
-            --app-drop-link 425 190 \
-            "AITranslator.dmg" \
-            "AI Translator.app"
-            
+          mkdir -p dmg_staging
+          cp -R "AI Translator.app" dmg_staging/
+          ln -sf /Applications dmg_staging/Applications
+          hdiutil create -volname "AI Translator" \
+            -srcfolder dmg_staging \
+            -ov -format UDZO \
+            AITranslator.dmg
+          rm -rf dmg_staging
+          ls -lh AITranslator.dmg
+          shasum -a 256 AITranslator.dmg
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
