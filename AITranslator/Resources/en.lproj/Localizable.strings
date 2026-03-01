@@ -60,6 +60,7 @@
 
 /* Menu */
 "menu.show_translator" = "Show Translator";
+"menu.console" = "Console";
 "menu.settings" = "Settings...";
 "menu.quit" = "Quit";
 

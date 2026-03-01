@@ -35,6 +35,7 @@ final class TranslationService: ObservableObject {
     ) async -> TranslationResponse? {
         guard let provider = providers[providerId] else {
             error = NSLocalizedString("error.provider_not_found", comment: "Provider not found")
+            AppLogger.shared.error("Translation", "Provider '\(providerId)' not found")
             return nil
         }
 
@@ -49,17 +50,30 @@ final class TranslationService: ObservableObject {
             targetLanguage: targetLanguage
         )
 
+        AppLogger.shared.request("Translation",
+            "\(sourceLanguage.name) → \(targetLanguage.name) via \(providerId)",
+            details: "Text: \(text.prefix(200))\(text.count > 200 ? "..." : "")")
+
         do {
             let response = try await provider.translate(request)
             isTranslating = false
+            AppLogger.shared.success("Translation",
+                "Translated successfully",
+                details: "Result: \(response.translatedText.prefix(200))\(response.translatedText.count > 200 ? "..." : "")")
             return response
         } catch let providerError as AIProviderError {
             isTranslating = false
             self.error = providerError.errorDescription
+            AppLogger.shared.error("Translation",
+                "Provider error: \(providerError.errorDescription ?? "unknown")",
+                details: String(describing: providerError))
             return nil
         } catch {
             isTranslating = false
             self.error = NSLocalizedString("error.translation_failed", comment: "Translation failed")
+            AppLogger.shared.error("Translation",
+                "Unexpected error",
+                details: error.localizedDescription)
             return nil
         }
     }

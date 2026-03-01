@@ -174,13 +174,13 @@ struct SettingsView: View {
         .alert(NSLocalizedString("settings.restart_title", comment: "Restart Required"),
                isPresented: $showRestartAlert) {
             Button(NSLocalizedString("settings.restart_now", comment: "Restart Now")) {
-                // Relaunch the app
-                let url = URL(fileURLWithPath: Bundle.main.resourcePath!)
-                let path = url.deletingLastPathComponent().deletingLastPathComponent().absoluteString
+                // Relaunch: use shell to wait and then open the app
+                let bundlePath = Bundle.main.bundlePath
+                let script = "sleep 0.5; open \"\(bundlePath)\""
                 let task = Process()
-                task.launchPath = "/usr/bin/open"
-                task.arguments = [path]
-                task.launch()
+                task.launchPath = "/bin/sh"
+                task.arguments = ["-c", script]
+                try? task.run()
                 NSApp.terminate(nil)
             }
             Button(NSLocalizedString("settings.restart_later", comment: "Later"), role: .cancel) {}

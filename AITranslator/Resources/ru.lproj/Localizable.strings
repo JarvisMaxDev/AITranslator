@@ -60,6 +60,7 @@
 
 /* Menu */
 "menu.show_translator" = "Показать переводчик";
+"menu.console" = "Консоль";
 "menu.settings" = "Настройки...";
 "menu.quit" = "Выйти";
 

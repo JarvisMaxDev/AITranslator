@@ -26,6 +26,7 @@ final class AnthropicProvider: AIProvider {
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResponse {
         let url = URL(string: "\(config.baseURL)/messages")!
+        AppLogger.request("Claude", "POST \(url.absoluteString)", details: "Model: \(config.model)")
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -36,9 +37,11 @@ final class AnthropicProvider: AIProvider {
         if var tokens = keychain.getOAuthTokens(forProvider: config.id) {
             if tokens.isExpired {
                 do {
+                    AppLogger.info("Claude", "Token expired, refreshing...")
                     tokens = try await OAuthService.shared.refreshClaudeToken(forProvider: config.id)
+                    AppLogger.success("Claude", "Token refreshed successfully")
                 } catch {
-                    print("[Claude] Token refresh failed: \(error)")
+                    AppLogger.error("Claude", "Token refresh failed", details: String(describing: error))
                     throw AIProviderError.tokenExpired
                 }
             }
@@ -74,6 +77,7 @@ final class AnthropicProvider: AIProvider {
 
         guard httpResponse.statusCode == 200 else {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            AppLogger.error("Claude", "API error (\(httpResponse.statusCode))", details: errorBody)
             throw AIProviderError.apiError("Anthropic API error (\(httpResponse.statusCode)): \(errorBody)")
         }
 
@@ -85,6 +89,7 @@ final class AnthropicProvider: AIProvider {
             throw AIProviderError.invalidResponse
         }
 
+        AppLogger.response("Claude", "200 OK", details: "Content length: \(text.count) chars")
         return TranslationResponse(
             translatedText: text.trimmingCharacters(in: .whitespacesAndNewlines),
             detectedLanguage: nil

@@ -16,12 +16,14 @@
 		5AB627C97F8DEF8997DF40EF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2EF75F340398B77F6B9AB5D /* SettingsView.swift */; };
 		60C7C3DF9F242601F977D68F /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3B01A08A419F5D2D9A2B59 /* KeychainService.swift */; };
 		651CD65A468036F7D42DE965 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061F7AC4FC6771CB3745DDEE /* AppDelegate.swift */; };
+		6607FAD790BE1009A69922AF /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */; };
 		68C35F5F3A52FF8F29CAA73D /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175B1FD3F69D8F7B30C4485C /* Constants.swift */; };
 		7DC0523CF12BA962232218B4 /* QwenProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FBE33C2478CB7650365239A /* QwenProvider.swift */; };
 		8698CCE9D289A0643E65080E /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10D08440D68C9B39710E5D /* AIProvider.swift */; };
 		86C36FCE234442BA9787ED22 /* AITranslatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB83B26766FDA602C3289053 /* AITranslatorApp.swift */; };
 		89D671DB26F57D4FDA753F74 /* Provider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E930E1E8083B95627DF9D75 /* Provider.swift */; };
 		8AEE7918902A0557D5687612 /* OAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 482A50FD172606D842B28BA2 /* OAuthService.swift */; };
+		95C2E596FF92018DE48AD6B7 /* ConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770CB59405077527397A4135 /* ConsoleView.swift */; };
 		97F9995E47BF6DA250F20B7D /* TranslatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09CAAD8D8EE1A6A5091416CA /* TranslatorView.swift */; };
 		A5588EDDA4894E370A5C1B71 /* PopupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC7456FD22A0EA0D24EE1FF /* PopupViewModel.swift */; };
 		A9E45AB4FE205AA4E5F033D3 /* ModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B555EE2B08A08539440FAB28 /* ModelService.swift */; };
@@ -49,6 +51,7 @@
 		4FBE33C2478CB7650365239A /* QwenProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QwenProvider.swift; sourceTree = "<group>"; };
 		627D26851CCFC69E3D8C1075 /* TranslationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPanel.swift; sourceTree = "<group>"; };
 		73016844C79CDDDF58BD8B3F /* TranslatorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslatorViewModel.swift; sourceTree = "<group>"; };
+		770CB59405077527397A4135 /* ConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleView.swift; sourceTree = "<group>"; };
 		79DEAC48A94A23215D8AD940 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		80314A224DDC977C434E6A83 /* AITranslator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AITranslator.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		80911CED3D4A997B1AF4D1C8 /* PopupTranslatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupTranslatorView.swift; sourceTree = "<group>"; };
@@ -59,6 +62,7 @@
 		A1B205FD44A746E0B21AFC4A /* Language.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Language.swift; sourceTree = "<group>"; };
 		AB83B26766FDA602C3289053 /* AITranslatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITranslatorApp.swift; sourceTree = "<group>"; };
 		B555EE2B08A08539440FAB28 /* ModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelService.swift; sourceTree = "<group>"; };
+		B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		BBC7456FD22A0EA0D24EE1FF /* PopupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupViewModel.swift; sourceTree = "<group>"; };
 		C2EF75F340398B77F6B9AB5D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EAB91F217857DC697004B034 /* AnthropicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicProvider.swift; sourceTree = "<group>"; };
@@ -148,6 +152,14 @@
 			path = Utilities;
 			sourceTree = "<group>";
 		};
+		DE21649493B9A4254A58D99D /* Console */ = {
+			isa = PBXGroup;
+			children = (
+				770CB59405077527397A4135 /* ConsoleView.swift */,
+			);
+			path = Console;
+			sourceTree = "<group>";
+		};
 		DF3B8659D26B0E2F06783DDD /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -169,6 +181,7 @@
 		EA582510A31FDB989003B1BF /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */,
 				8A3B01A08A419F5D2D9A2B59 /* KeychainService.swift */,
 				B555EE2B08A08539440FAB28 /* ModelService.swift */,
 				A14885D5F11B7413D17510A9 /* TranslationService.swift */,
@@ -190,6 +203,7 @@
 			isa = PBXGroup;
 			children = (
 				32F693385C387CB0F5648B62 /* Components */,
+				DE21649493B9A4254A58D99D /* Console */,
 				E8FFFA1262E5F3590FE4E78A /* MainWindow */,
 				9C23AABEC8D4933E65C2C07D /* Popup */,
 				7D51598A2A6FFC748C392073 /* Settings */,
@@ -298,6 +312,8 @@
 				86C36FCE234442BA9787ED22 /* AITranslatorApp.swift in Sources */,
 				B0225AF9796940D1936FF676 /* AnthropicProvider.swift in Sources */,
 				651CD65A468036F7D42DE965 /* AppDelegate.swift in Sources */,
+				6607FAD790BE1009A69922AF /* AppLogger.swift in Sources */,
+				95C2E596FF92018DE48AD6B7 /* ConsoleView.swift in Sources */,
 				68C35F5F3A52FF8F29CAA73D /* Constants.swift in Sources */,
 				3848751BC558022596D4F3AB /* HotkeyRecorderView.swift in Sources */,
 				60C7C3DF9F242601F977D68F /* KeychainService.swift in Sources */,

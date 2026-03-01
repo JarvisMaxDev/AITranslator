@@ -32,6 +32,7 @@ final class QwenProvider: AIProvider {
         let (authHeader, baseURL, modelName) = try await getAuthConfig()
 
         let url = URL(string: "\(baseURL)/chat/completions")!
+        AppLogger.request("Qwen", "POST \(url.absoluteString)", details: "Model: \(modelName)")
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -64,6 +65,7 @@ final class QwenProvider: AIProvider {
 
         guard httpResponse.statusCode == 200 else {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            AppLogger.error("Qwen", "API error (\(httpResponse.statusCode))", details: errorBody)
             throw AIProviderError.apiError("Qwen API error (\(httpResponse.statusCode)): \(errorBody)")
         }
 
@@ -76,6 +78,7 @@ final class QwenProvider: AIProvider {
             throw AIProviderError.invalidResponse
         }
 
+        AppLogger.response("Qwen", "200 OK", details: "Content length: \(content.count) chars")
         return TranslationResponse(
             translatedText: content.trimmingCharacters(in: .whitespacesAndNewlines),
             detectedLanguage: nil
@@ -93,9 +96,11 @@ final class QwenProvider: AIProvider {
             if tokens.isExpired {
                 // Try to refresh the token automatically
                 do {
+                    AppLogger.info("Qwen", "Token expired, refreshing...")
                     tokens = try await OAuthService.shared.refreshQwenToken(forProvider: config.id)
+                    AppLogger.success("Qwen", "Token refreshed successfully")
                 } catch {
-                    print("[Qwen] Token refresh failed: \(error)")
+                    AppLogger.error("Qwen", "Token refresh failed", details: String(describing: error))
                     throw AIProviderError.tokenExpired
                 }
             }
