@@ -104,50 +104,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Hotkey Action
 
     func handleHotkey() {
-        // Remember current clipboard to detect change
-        let previousClipboard = NSPasteboard.general.changeCount
+        // Read selected text directly from the active app via Accessibility API
+        let selectedText = getSelectedText() ?? NSPasteboard.general.string(forType: .string) ?? ""
 
-        // Step 1: Simulate ⌘C via AppleScript (more reliable than CGEvent)
-        simulateCopy()
+        // Show main window
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first(where: { $0.title.contains("Translator") }) {
+            window.makeKeyAndOrderFront(nil)
+        }
 
-        // Step 2: Wait for clipboard to update, then show window with translation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            let clipboardText: String
-            if NSPasteboard.general.changeCount != previousClipboard {
-                // Clipboard changed — use new content
-                clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
-            } else {
-                // Clipboard didn't change — use existing content
-                clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
-            }
-
-            // Show main window
-            NSApp.activate(ignoringOtherApps: true)
-            if let window = NSApp.windows.first(where: { $0.title.contains("Translator") }) {
-                window.makeKeyAndOrderFront(nil)
-            }
-
-            // Set clipboard text and auto-translate
-            if let vm = self?.translatorViewModel, !clipboardText.isEmpty {
-                vm.sourceText = clipboardText
-                Task {
-                    await vm.translate()
-                }
+        // Set text and auto-translate
+        if let vm = translatorViewModel, !selectedText.isEmpty {
+            vm.sourceText = selectedText
+            Task {
+                await vm.translate()
             }
         }
     }
 
-    /// Simulate ⌘C keystroke via AppleScript (System Events)
-    private func simulateCopy() {
-        let script = NSAppleScript(source: """
-            tell application "System Events"
-                keystroke "c" using command down
-            end tell
-        """)
-        var error: NSDictionary?
-        script?.executeAndReturnError(&error)
-        if let error = error {
-            print("[Hotkey] AppleScript copy failed: \(error)")
+    /// Read selected text from the focused element via Accessibility API
+    private func getSelectedText() -> String? {
+        let systemWide = AXUIElementCreateSystemWide()
+
+        // Get the focused application
+        var focusedApp: AnyObject?
+        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success else {
+            return nil
         }
+
+        // Get the focused UI element
+        var focusedElement: AnyObject?
+        guard AXUIElementCopyAttributeValue(focusedApp as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success else {
+            return nil
+        }
+
+        // Get the selected text
+        var selectedText: AnyObject?
+        guard AXUIElementCopyAttributeValue(focusedElement as! AXUIElement, kAXSelectedTextAttribute as CFString, &selectedText) == .success else {
+            return nil
+        }
+
+        let text = selectedText as? String
+        return (text?.isEmpty == false) ? text : nil
     }
 }
