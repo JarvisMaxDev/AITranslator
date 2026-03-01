@@ -2,26 +2,79 @@ import Cocoa
 import SwiftUI
 import Carbon.HIToolbox
 
+/// Callback for CGEvent tap — must be a free function (not a method)
+/// Detects double ⌘C within 0.4s
+private var lastCmdCTime: Date?
+private var appDelegateRef: AppDelegate?
+
+private func eventTapCallback(
+    proxy: CGEventTapProxy,
+    type: CGEventType,
+    event: CGEvent,
+    refcon: UnsafeMutableRawPointer?
+) -> Unmanaged<CGEvent>? {
+    // Pass through non-keyDown events
+    guard type == .keyDown else {
+        // If the tap is disabled by the system, re-enable it
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let refcon = refcon {
+                let pointer = refcon.assumingMemoryBound(to: CFMachPort?.self)
+                if let tap = pointer.pointee {
+                    CGEvent.tapEnable(tap: tap, enable: true)
+                }
+            }
+        }
+        return Unmanaged.passRetained(event)
+    }
+
+    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+    let flags = event.flags
+
+    // Check for ⌘C (keyCode 8 = 'c', Command flag set)
+    guard keyCode == 8, flags.contains(.maskCommand) else {
+        lastCmdCTime = nil
+        return Unmanaged.passRetained(event)
+    }
+
+    let now = Date()
+    if let lastTime = lastCmdCTime, now.timeIntervalSince(lastTime) < 0.4 {
+        // Double ⌘C detected!
+        lastCmdCTime = nil
+        DispatchQueue.main.async {
+            appDelegateRef?.showPopupTranslator()
+        }
+    } else {
+        lastCmdCTime = now
+    }
+
+    // Always pass the event through so ⌘C still copies
+    return Unmanaged.passRetained(event)
+}
+
 /// AppDelegate handles global hotkey registration and menu bar status item.
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var popupWindow: NSWindow?
     private var popupHostingController: NSHostingController<AnyView>?
-    private var lastControlCTime: Date?
-    private var eventMonitor: Any?
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
     /// Shared SettingsViewModel — injected from AITranslatorApp after launch
     var settingsViewModel: SettingsViewModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        appDelegateRef = self
         setupStatusItem()
         requestAccessibilityIfNeeded()
         setupGlobalHotkey()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        if let monitor = eventMonitor {
-            NSEvent.removeMonitor(monitor)
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+        }
+        if let source = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
         }
     }
 
@@ -75,47 +128,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
-    // MARK: - Global Hotkey (Double ⌘C)
+    // MARK: - Global Hotkey (Double ⌘C via CGEvent Tap)
 
     private func setupGlobalHotkey() {
-        // Monitor global key events for double ⌘C
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleGlobalKeyEvent(event)
-        }
-    }
+        // Allocate storage for the tap reference so the callback can re-enable it
+        let tapPointer = UnsafeMutablePointer<CFMachPort?>.allocate(capacity: 1)
+        tapPointer.initialize(to: nil)
 
-    private func handleGlobalKeyEvent(_ event: NSEvent) {
-        // Check for ⌘C (keyCode 8 = 'c', modifierFlags contains .command)
-        guard event.keyCode == 8,
-              event.modifierFlags.contains(.command) else {
-            lastControlCTime = nil
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue),
+            callback: eventTapCallback,
+            userInfo: tapPointer
+        ) else {
+            print("[Hotkey] Failed to create CGEvent tap. Check Accessibility permissions.")
+            tapPointer.deallocate()
             return
         }
 
-        let now = Date()
-        if let lastTime = lastControlCTime,
-           now.timeIntervalSince(lastTime) < 0.4 {
-            // Double Ctrl+C detected
-            lastControlCTime = nil
-            DispatchQueue.main.async { [weak self] in
-                self?.showPopupTranslator()
-            }
-        } else {
-            lastControlCTime = now
-        }
+        tapPointer.pointee = tap
+        eventTap = tap
+
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        runLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+
+        print("[Hotkey] CGEvent tap installed — double ⌘C active")
     }
 
     // MARK: - Popup Translator
 
-    private func showPopupTranslator() {
-        // Read from clipboard (first Ctrl+C already copied the text)
+    func showPopupTranslator() {
+        // Small delay to let ⌘C finish copying to clipboard
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.presentPopup()
+        }
+    }
+
+    private func presentPopup() {
         let clipboardText = NSPasteboard.general.string(forType: .string) ?? ""
 
         if let existing = popupWindow, existing.isVisible {
             existing.close()
         }
 
-        // Use shared SettingsViewModel, or create one as fallback
         let settingsVM = settingsViewModel ?? SettingsViewModel()
         let translatorVM = TranslatorViewModel(settingsViewModel: settingsVM)
         translatorVM.sourceText = clipboardText
@@ -149,7 +208,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         popupWindow = window
         popupHostingController = controller
 
-        // Auto-translate if there's text
         if !clipboardText.isEmpty {
             Task {
                 await translatorVM.translate()
