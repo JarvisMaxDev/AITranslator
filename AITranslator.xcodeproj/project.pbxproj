@@ -18,6 +18,7 @@
 		651CD65A468036F7D42DE965 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061F7AC4FC6771CB3745DDEE /* AppDelegate.swift */; };
 		6607FAD790BE1009A69922AF /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */; };
 		68C35F5F3A52FF8F29CAA73D /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175B1FD3F69D8F7B30C4485C /* Constants.swift */; };
+		714E180787C93D06EF1A4A54 /* GeminiProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DBD829436296526AE36F9A0 /* GeminiProvider.swift */; };
 		7DC0523CF12BA962232218B4 /* QwenProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FBE33C2478CB7650365239A /* QwenProvider.swift */; };
 		8698CCE9D289A0643E65080E /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10D08440D68C9B39710E5D /* AIProvider.swift */; };
 		86C36FCE234442BA9787ED22 /* AITranslatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB83B26766FDA602C3289053 /* AITranslatorApp.swift */; };
@@ -28,6 +29,7 @@
 		A5588EDDA4894E370A5C1B71 /* PopupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC7456FD22A0EA0D24EE1FF /* PopupViewModel.swift */; };
 		A9E45AB4FE205AA4E5F033D3 /* ModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B555EE2B08A08539440FAB28 /* ModelService.swift */; };
 		B0225AF9796940D1936FF676 /* AnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB91F217857DC697004B034 /* AnthropicProvider.swift */; };
+		B0F31D50BE23A274DD32F5CC /* OpenAIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A49CF88EA73A630EA59566AC /* OpenAIProvider.swift */; };
 		D2B14BD6377370F347812BC8 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79DEAC48A94A23215D8AD940 /* SettingsViewModel.swift */; };
 		E93005480CBE8E46CAE1D148 /* Translation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD147362A8A851D3B7EDE514 /* Translation.swift */; };
 		F0A11E29AD3846FC213DDAC2 /* TranslatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73016844C79CDDDF58BD8B3F /* TranslatorViewModel.swift */; };
@@ -48,6 +50,7 @@
 		22B4F9C3B18040BB6074D790 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		24C12507A3E2B0B129ADB8E0 /* LocalCallbackServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCallbackServer.swift; sourceTree = "<group>"; };
 		482A50FD172606D842B28BA2 /* OAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthService.swift; sourceTree = "<group>"; };
+		4DBD829436296526AE36F9A0 /* GeminiProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiProvider.swift; sourceTree = "<group>"; };
 		4FBE33C2478CB7650365239A /* QwenProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QwenProvider.swift; sourceTree = "<group>"; };
 		627D26851CCFC69E3D8C1075 /* TranslationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPanel.swift; sourceTree = "<group>"; };
 		73016844C79CDDDF58BD8B3F /* TranslatorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslatorViewModel.swift; sourceTree = "<group>"; };
@@ -60,6 +63,7 @@
 		8E930E1E8083B95627DF9D75 /* Provider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Provider.swift; sourceTree = "<group>"; };
 		A14885D5F11B7413D17510A9 /* TranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationService.swift; sourceTree = "<group>"; };
 		A1B205FD44A746E0B21AFC4A /* Language.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Language.swift; sourceTree = "<group>"; };
+		A49CF88EA73A630EA59566AC /* OpenAIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIProvider.swift; sourceTree = "<group>"; };
 		AB83B26766FDA602C3289053 /* AITranslatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITranslatorApp.swift; sourceTree = "<group>"; };
 		B555EE2B08A08539440FAB28 /* ModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelService.swift; sourceTree = "<group>"; };
 		B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
@@ -139,6 +143,8 @@
 			children = (
 				0B10D08440D68C9B39710E5D /* AIProvider.swift */,
 				EAB91F217857DC697004B034 /* AnthropicProvider.swift */,
+				4DBD829436296526AE36F9A0 /* GeminiProvider.swift */,
+				A49CF88EA73A630EA59566AC /* OpenAIProvider.swift */,
 				4FBE33C2478CB7650365239A /* QwenProvider.swift */,
 			);
 			path = Providers;
@@ -315,6 +321,7 @@
 				6607FAD790BE1009A69922AF /* AppLogger.swift in Sources */,
 				95C2E596FF92018DE48AD6B7 /* ConsoleView.swift in Sources */,
 				68C35F5F3A52FF8F29CAA73D /* Constants.swift in Sources */,
+				714E180787C93D06EF1A4A54 /* GeminiProvider.swift in Sources */,
 				3848751BC558022596D4F3AB /* HotkeyRecorderView.swift in Sources */,
 				60C7C3DF9F242601F977D68F /* KeychainService.swift in Sources */,
 				5241BEF9EB0EBEBE93ACBDA0 /* Language.swift in Sources */,
@@ -322,6 +329,7 @@
 				FC27C2FD89E80D6782B93869 /* LocalCallbackServer.swift in Sources */,
 				A9E45AB4FE205AA4E5F033D3 /* ModelService.swift in Sources */,
 				8AEE7918902A0557D5687612 /* OAuthService.swift in Sources */,
+				B0F31D50BE23A274DD32F5CC /* OpenAIProvider.swift in Sources */,
 				011B31EB3462030844C3C723 /* PopupTranslatorView.swift in Sources */,
 				A5588EDDA4894E370A5C1B71 /* PopupViewModel.swift in Sources */,
 				89D671DB26F57D4FDA753F74 /* Provider.swift in Sources */,

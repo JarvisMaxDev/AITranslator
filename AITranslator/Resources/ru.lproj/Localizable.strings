@@ -42,6 +42,8 @@
 "settings.connecting" = "Подключение...";
 "settings.qwen_api_key_hint" = "Получите API-ключ на dashscope.console.aliyun.com";
 "settings.anthropic_api_key_hint" = "Получите API-ключ на console.anthropic.com";
+"settings.openai_api_key_hint" = "Получите API-ключ на platform.openai.com";
+"settings.gemini_api_key_hint" = "Получите API-ключ на aistudio.google.com";
 "settings.save" = "Сохранить";
 "settings.cancel" = "Отмена";
 

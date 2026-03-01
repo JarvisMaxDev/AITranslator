@@ -39,8 +39,8 @@ final class SettingsViewModel: ObservableObject {
                 } else {
                     fetchedModels[id] = config.type.availableModels
                 }
-            case .qwen:
-                // Qwen doesn't have a models endpoint; use hardcoded list
+            case .qwen, .openai, .gemini:
+                // Use hardcoded model lists
                 fetchedModels[id] = config.type.availableModels
             }
         }
@@ -125,6 +125,9 @@ final class SettingsViewModel: ObservableObject {
                 }
             case .anthropic:
                 success = await oauthService.startAnthropicOAuth(providerId: id)
+            case .openai, .gemini:
+                // API key only — no OAuth flow needed
+                break
             }
 
             if success {

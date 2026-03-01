@@ -4,6 +4,8 @@ import Foundation
 enum ProviderType: String, Codable, CaseIterable, Identifiable {
     case qwen = "qwen"
     case anthropic = "anthropic"
+    case openai = "openai"
+    case gemini = "gemini"
 
     var id: String { rawValue }
 
@@ -11,6 +13,8 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .qwen: return "Qwen"
         case .anthropic: return "Claude (Anthropic)"
+        case .openai: return "OpenAI"
+        case .gemini: return "Google Gemini"
         }
     }
 
@@ -18,6 +22,8 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .qwen: return "sparkles"
         case .anthropic: return "brain.head.profile"
+        case .openai: return "bolt.fill"
+        case .gemini: return "diamond.fill"
         }
     }
 
@@ -25,6 +31,8 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .qwen: return "https://dashscope.aliyuncs.com/compatible-mode/v1"
         case .anthropic: return "https://api.anthropic.com/v1"
+        case .openai: return "https://api.openai.com/v1"
+        case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai"
         }
     }
 
@@ -33,6 +41,8 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .qwen: return "https://portal.qwen.ai/api/v1"
         case .anthropic: return "https://api.anthropic.com/v1"
+        case .openai: return "https://api.openai.com/v1"
+        case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai"
         }
     }
 
@@ -40,6 +50,8 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .qwen: return "coder-model"
         case .anthropic: return "claude-sonnet-4-20250514"
+        case .openai: return "gpt-4o"
+        case .gemini: return "gemini-2.5-flash"
         }
     }
 
@@ -48,6 +60,8 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .qwen: return "qwen-plus"
         case .anthropic: return "claude-sonnet-4-20250514"
+        case .openai: return "gpt-4o"
+        case .gemini: return "gemini-2.5-flash"
         }
     }
 
@@ -55,6 +69,8 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .qwen: return true
         case .anthropic: return true
+        case .openai: return false
+        case .gemini: return false
         }
     }
 
@@ -75,6 +91,22 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
                 ("claude-sonnet-4-5-20250929", "Sonnet 4.5 · Balanced"),
                 ("claude-4-opus-20250514", "Opus 4"),
                 ("claude-opus-4-5-20251101", "Opus 4.5 · Best"),
+            ]
+        case .openai:
+            return [
+                ("gpt-4o", "GPT-4o"),
+                ("gpt-4o-mini", "GPT-4o Mini · Fast"),
+                ("gpt-4.1", "GPT-4.1"),
+                ("gpt-4.1-mini", "GPT-4.1 Mini"),
+                ("gpt-4.1-nano", "GPT-4.1 Nano · Cheapest"),
+                ("o4-mini", "o4 Mini · Reasoning"),
+            ]
+        case .gemini:
+            return [
+                ("gemini-2.5-flash", "Gemini 2.5 Flash"),
+                ("gemini-2.5-pro", "Gemini 2.5 Pro"),
+                ("gemini-2.0-flash", "Gemini 2.0 Flash"),
+                ("gemini-2.0-flash-lite", "Gemini 2.0 Flash-Lite · Fast"),
             ]
         }
     }

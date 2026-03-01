@@ -22,6 +22,10 @@ final class TranslationService: ObservableObject {
             provider = QwenProvider(config: config)
         case .anthropic:
             provider = AnthropicProvider(config: config)
+        case .openai:
+            provider = OpenAIProvider(config: config)
+        case .gemini:
+            provider = GeminiProvider(config: config)
         }
         registerProvider(provider)
     }

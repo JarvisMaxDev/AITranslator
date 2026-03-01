@@ -486,6 +486,12 @@ struct SettingsView: View {
         case .anthropic:
             return NSLocalizedString("settings.anthropic_api_key_hint",
                 comment: "Get your API key at console.anthropic.com")
+        case .openai:
+            return NSLocalizedString("settings.openai_api_key_hint",
+                comment: "Get your API key at platform.openai.com")
+        case .gemini:
+            return NSLocalizedString("settings.gemini_api_key_hint",
+                comment: "Get your API key at aistudio.google.com")
         }
     }
 }

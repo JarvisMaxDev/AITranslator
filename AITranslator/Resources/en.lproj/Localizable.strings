@@ -42,6 +42,8 @@
 "settings.connecting" = "Connecting...";
 "settings.qwen_api_key_hint" = "Get your API key at dashscope.console.aliyun.com";
 "settings.anthropic_api_key_hint" = "Get your API key at console.anthropic.com";
+"settings.openai_api_key_hint" = "Get your API key at platform.openai.com";
+"settings.gemini_api_key_hint" = "Get your API key at aistudio.google.com";
 "settings.save" = "Save";
 "settings.cancel" = "Cancel";
 
