@@ -23,7 +23,8 @@ struct TranslatorView: View {
                     language: $viewModel.sourceLanguage,
                     placeholder: NSLocalizedString("translator.enter_text", comment: "Enter text to translate..."),
                     isSource: true,
-                    isLoading: false
+                    isLoading: false,
+                    detectedLanguage: viewModel.detectedLanguage?.name
                 )
 
                 // Target panel

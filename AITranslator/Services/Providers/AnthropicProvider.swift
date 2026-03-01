@@ -94,34 +94,23 @@ final class AnthropicProvider: AIProvider {
             throw AIProviderError.invalidResponse
         }
 
-        // Log pretty-printed response
+        // Log        // Log response
         if let prettyResponse = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]),
            let responseStr = String(data: prettyResponse, encoding: .utf8) {
             AppLogger.response("Claude", "200 OK", details: responseStr)
         }
+        
+        let (cleanedText, detectedLang) = LanguageDetectionHelper.extractDetectedLanguage(from: text)
+        
         return TranslationResponse(
-            translatedText: text.trimmingCharacters(in: .whitespacesAndNewlines),
-            detectedLanguage: nil
+            translatedText: cleanedText.trimmingCharacters(in: .whitespacesAndNewlines),
+            detectedLanguage: detectedLang
         )
     }
 
     // MARK: - Private
 
     private func buildSystemPrompt(request: TranslationRequest) -> String {
-        let sourceLang = request.sourceLanguage.code == "auto"
-            ? "auto-detected language"
-            : request.sourceLanguage.name
-        let targetLang = request.targetLanguage.name
-
-        return """
-        You are a professional translator. Translate the following text from \(sourceLang) to \(targetLang).
-        
-        Rules:
-        - Return ONLY the translated text, nothing else
-        - Preserve the original formatting (line breaks, paragraphs)
-        - Maintain the tone and style of the original text
-        - Do not add explanations, notes, or comments
-        - If the text is already in the target language, return it as-is
-        """
+        return LanguageDetectionHelper.buildSystemPrompt(sourceLang: request.sourceLanguage.code == "auto" ? "auto" : request.sourceLanguage.name, targetLang: request.targetLanguage.name)
     }
 }

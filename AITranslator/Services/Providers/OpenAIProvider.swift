@@ -1,5 +1,52 @@
 import Foundation
 
+/// Helper for parsing detected language from AI response
+struct LanguageDetectionHelper {
+    /// Extracts the detected language tag if present and returns the cleaned text
+    static func extractDetectedLanguage(from text: String) -> (cleanedText: String, detectedLanguage: String?) {
+        let pattern = #"(?i)\[DETECTED_LANGUAGE:\s*(.+?)\]"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return (text, nil) }
+        
+        let nsString = text as NSString
+        let results = regex.matches(in: text, range: NSRange(location: 0, length: nsString.length))
+        
+        guard let match = results.first, match.numberOfRanges > 1 else { return (text, nil) }
+        
+        let detectedLanguage = nsString.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedText = nsString.replacingCharacters(in: match.range, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        return (cleanedText, detectedLanguage)
+    }
+    
+    /// Modifies the system prompt to request language detection if the source language is 'auto'
+    static func buildSystemPrompt(sourceLang: String, targetLang: String) -> String {
+        let isAuto = sourceLang == "auto"
+        let sourceName = isAuto ? "auto-detected language" : sourceLang
+        
+        var prompt = """
+        You are a professional translator. Translate the following text from \(sourceName) to \(targetLang).
+        
+        Rules:
+        - Return ONLY the translated text, nothing else
+        - Preserve the original formatting (line breaks, paragraphs)
+        - Maintain the tone and style of the original text
+        - Do not add explanations, notes, or comments
+        - If the text is already in the target language, return it as-is
+        """
+        
+        if isAuto {
+            prompt += """
+            
+            - IMPORTANT: Since the source language is auto-detected, you MUST output the detected language name on the very first line in the exact format: [DETECTED_LANGUAGE: Language Name]
+            - The translation should start on the line immediately following the tag.
+            """
+        }
+        
+        return prompt
+    }
+}
+
+
 /// OpenAI provider supporting two auth methods:
 /// - OAuth via ChatGPT subscription → uses Codex Responses API (chatgpt.com/backend-api)
 /// - API key → uses standard Chat Completions API (api.openai.com/v1)
@@ -138,9 +185,11 @@ final class OpenAIProvider: AIProvider {
 
         AppLogger.response("OpenAI·OAuth", "Stream complete", details: "Result: \(translatedText.prefix(200))")
 
+        let (cleanedText, detectedLang) = LanguageDetectionHelper.extractDetectedLanguage(from: translatedText)
+
         return TranslationResponse(
-            translatedText: translatedText.trimmingCharacters(in: .whitespacesAndNewlines),
-            detectedLanguage: nil
+            translatedText: cleanedText.trimmingCharacters(in: .whitespacesAndNewlines),
+            detectedLanguage: detectedLang
         )
     }
 
@@ -206,29 +255,17 @@ final class OpenAIProvider: AIProvider {
             AppLogger.response("OpenAI·API", "200 OK", details: responseStr)
         }
 
+        let (cleanedText, detectedLang) = LanguageDetectionHelper.extractDetectedLanguage(from: content)
+
         return TranslationResponse(
-            translatedText: content.trimmingCharacters(in: .whitespacesAndNewlines),
-            detectedLanguage: nil
+            translatedText: cleanedText.trimmingCharacters(in: .whitespacesAndNewlines),
+            detectedLanguage: detectedLang
         )
     }
 
     // MARK: - Private
 
     private func buildSystemPrompt(request: TranslationRequest) -> String {
-        let sourceLang = request.sourceLanguage.code == "auto"
-            ? "auto-detected language"
-            : request.sourceLanguage.name
-        let targetLang = request.targetLanguage.name
-
-        return """
-        You are a professional translator. Translate the following text from \(sourceLang) to \(targetLang).
-        
-        Rules:
-        - Return ONLY the translated text, nothing else
-        - Preserve the original formatting (line breaks, paragraphs)
-        - Maintain the tone and style of the original text
-        - Do not add explanations, notes, or comments
-        - If the text is already in the target language, return it as-is
-        """
+        return LanguageDetectionHelper.buildSystemPrompt(sourceLang: request.sourceLanguage.code == "auto" ? "auto" : request.sourceLanguage.name, targetLang: request.targetLanguage.name)
     }
 }

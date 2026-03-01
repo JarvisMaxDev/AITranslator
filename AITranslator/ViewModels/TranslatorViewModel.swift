@@ -101,6 +101,18 @@ final class TranslatorViewModel: ObservableObject {
 
         if let response {
             translatedText = response.translatedText
+            // Only update detected language if we're in auto mode and it provided one
+            if sourceLanguage.code == "auto" {
+                if let detectedName = response.detectedLanguage {
+                    // Create a pseudo-language just for display, or just store the name
+                    // Here we just store it in detectedLanguage holding the original property
+                    detectedLanguage = Language(code: "auto", name: "\(detectedName) (auto)", localizedName: "\(detectedName) (auto)", flag: "✨")
+                } else {
+                    detectedLanguage = nil
+                }
+            } else {
+                detectedLanguage = nil // Clear if not auto
+            }
         } else {
             error = translationService.error ?? NSLocalizedString("error.translation_failed", comment: "Translation failed")
         }

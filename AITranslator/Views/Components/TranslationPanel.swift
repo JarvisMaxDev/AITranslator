@@ -7,6 +7,7 @@ struct TranslationPanel: View {
     let placeholder: String
     let isSource: Bool
     let isLoading: Bool
+    var detectedLanguage: String? = nil
 
     @State private var isHovering = false
     @State private var isCopied = false
@@ -19,9 +20,14 @@ struct TranslationPanel: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text(isSource
+                let titleBase = isSource
                     ? NSLocalizedString("panel.source", comment: "Source")
-                    : NSLocalizedString("panel.translation", comment: "Translation"))
+                    : NSLocalizedString("panel.translation", comment: "Translation")
+                let titleText = (isSource && detectedLanguage != nil) 
+                    ? "\(titleBase) (\(detectedLanguage!))" 
+                    : titleBase
+
+                Text(titleText)
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundStyle(.secondary)
