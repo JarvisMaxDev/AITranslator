@@ -117,8 +117,15 @@ final class TranslatorViewModel: ObservableObject {
             } else {
                 detectedLanguage = nil
             }
+
+            AppLogger.shared.success("Translation",
+                "Stream complete",
+                details: "Result: \(translatedText.prefix(200))\(translatedText.count > 200 ? "..." : "")")
         } catch {
             self.error = error.localizedDescription
+            AppLogger.shared.error("Translation",
+                "Stream error",
+                details: error.localizedDescription)
         }
 
         isTranslating = false
