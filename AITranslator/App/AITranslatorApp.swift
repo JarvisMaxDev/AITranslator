@@ -43,6 +43,34 @@ struct AITranslatorApp: App {
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .disabled(!translatorViewModel.canRedo)
             }
+
+            CommandGroup(replacing: .pasteboard) {
+                Button(NSLocalizedString("action.paste", comment: "Paste")) {
+                    if OCRService.clipboardContainsImage(), let image = OCRService.imageFromClipboard() {
+                        // Image in clipboard — run OCR
+                        Task { await translatorViewModel.processImage(image) }
+                    } else {
+                        // Text in clipboard — standard paste
+                        NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil)
+                    }
+                }
+                .keyboardShortcut("v", modifiers: .command)
+
+                Button(NSLocalizedString("action.copy", comment: "Copy")) {
+                    NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("c", modifiers: .command)
+
+                Button(NSLocalizedString("action.cut", comment: "Cut")) {
+                    NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("x", modifiers: .command)
+
+                Button(NSLocalizedString("action.select_all", comment: "Select All")) {
+                    NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("a", modifiers: .command)
+            }
         }
 
         Window(NSLocalizedString("settings.title", comment: "Settings"), id: "settings") {
