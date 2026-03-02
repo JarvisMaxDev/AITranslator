@@ -150,4 +150,57 @@ final class QwenProvider: AIProvider {
     private func buildSystemPrompt(request: TranslationRequest) -> String {
         return LanguageDetectionHelper.buildSystemPrompt(sourceLang: request.sourceLanguage.code == "auto" ? "auto" : request.sourceLanguage.name, targetLang: request.targetLanguage.name)
     }
+
+    // MARK: - Streaming
+
+    func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    let (authHeader, baseURL, modelName) = try await self.getAuthConfig()
+
+                    let url = URL(string: "\(baseURL)/chat/completions")!
+                    var urlRequest = URLRequest(url: url)
+                    urlRequest.httpMethod = "POST"
+                    urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    urlRequest.setValue(authHeader, forHTTPHeaderField: "Authorization")
+                    urlRequest.timeoutInterval = 60
+
+                    let systemPrompt = self.buildSystemPrompt(request: request)
+                    let body: [String: Any] = [
+                        "model": modelName,
+                        "messages": [
+                            ["role": "system", "content": systemPrompt],
+                            ["role": "user", "content": request.sourceText]
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 4096,
+                        "stream": true,
+                        "enable_thinking": false
+                    ]
+
+                    urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+                    AppLogger.request("Qwen", "POST stream \(url.absoluteString)")
+
+                    let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        throw AIProviderError.invalidResponse
+                    }
+                    if httpResponse.statusCode == 401 { throw AIProviderError.tokenExpired }
+                    guard httpResponse.statusCode == 200 else {
+                        throw AIProviderError.apiError("Qwen stream error (\(httpResponse.statusCode))")
+                    }
+
+                    for try await line in bytes.lines {
+                        if let delta = SSEStreamParser.parseOpenAIDelta(line) {
+                            continuation.yield(delta)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
 }

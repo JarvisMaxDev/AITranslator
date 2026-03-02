@@ -82,6 +82,36 @@ final class TranslationService: ObservableObject {
         }
     }
 
+    /// Stream translation text token by token
+    func translateStream(
+        text: String,
+        from sourceLanguage: Language,
+        to targetLanguage: Language,
+        using providerId: String
+    ) -> AsyncThrowingStream<String, Error> {
+        guard let provider = providers[providerId] else {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: AIProviderError.apiError(
+                    NSLocalizedString("error.provider_not_found", comment: "Provider not found")))
+            }
+        }
+
+        let request = TranslationRequest(
+            sourceText: text,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage
+        )
+
+        AppLogger.shared.request("Translation",
+            "\(sourceLanguage.name) → \(targetLanguage.name) via \(providerId) [stream]",
+            details: "Text: \(text.prefix(200))\(text.count > 200 ? "..." : "")")
+
+        isTranslating = true
+        error = nil
+
+        return provider.translateStream(request)
+    }
+
     /// Check if a provider is authenticated
     func isProviderAuthenticated(_ providerId: String) -> Bool {
         providers[providerId]?.isAuthenticated ?? false

@@ -113,4 +113,70 @@ final class AnthropicProvider: AIProvider {
     private func buildSystemPrompt(request: TranslationRequest) -> String {
         return LanguageDetectionHelper.buildSystemPrompt(sourceLang: request.sourceLanguage.code == "auto" ? "auto" : request.sourceLanguage.name, targetLang: request.targetLanguage.name)
     }
+
+    // MARK: - Streaming
+
+    func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    let url = URL(string: "\(self.config.baseURL)/messages")!
+                    var urlRequest = URLRequest(url: url)
+                    urlRequest.httpMethod = "POST"
+                    urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    urlRequest.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+                    urlRequest.timeoutInterval = 60
+
+                    // Set auth header
+                    if var tokens = self.keychain.getOAuthTokens(forProvider: self.config.id) {
+                        if tokens.isExpired {
+                            do {
+                                tokens = try await OAuthService.shared.refreshClaudeToken(forProvider: self.config.id)
+                            } catch {
+                                throw AIProviderError.tokenExpired
+                            }
+                        }
+                        urlRequest.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
+                        urlRequest.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+                    } else if let apiKey = self.keychain.getAPIKey(forProvider: self.config.id) {
+                        urlRequest.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+                    } else {
+                        throw AIProviderError.notAuthenticated
+                    }
+
+                    let systemPrompt = self.buildSystemPrompt(request: request)
+                    let body: [String: Any] = [
+                        "model": self.config.model,
+                        "max_tokens": 4096,
+                        "system": systemPrompt,
+                        "messages": [
+                            ["role": "user", "content": request.sourceText]
+                        ],
+                        "stream": true
+                    ]
+
+                    urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+                    AppLogger.request("Claude", "POST stream \(url.absoluteString)")
+
+                    let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        throw AIProviderError.invalidResponse
+                    }
+                    if httpResponse.statusCode == 401 { throw AIProviderError.tokenExpired }
+                    guard httpResponse.statusCode == 200 else {
+                        throw AIProviderError.apiError("Claude stream error (\(httpResponse.statusCode))")
+                    }
+
+                    for try await line in bytes.lines {
+                        if let delta = SSEStreamParser.parseAnthropicDelta(line) {
+                            continuation.yield(delta)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
 }

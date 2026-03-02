@@ -67,7 +67,7 @@ final class TranslatorViewModel: ObservableObject {
         return LanguageList.find(byCode: base)
     }
 
-    /// Perform translation
+    /// Perform translation with streaming
     func translate() async {
         let text = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -84,38 +84,44 @@ final class TranslatorViewModel: ObservableObject {
 
         isTranslating = true
         error = nil
+        translatedText = ""
 
         // Use detected language when Auto Detect is selected
         let effectiveSource = (sourceLanguage.code == "auto")
             ? (detectedLanguage ?? sourceLanguage)
             : sourceLanguage
 
-        let response = await translationService.translate(
+        let stream = translationService.translateStream(
             text: text,
             from: effectiveSource,
             to: targetLanguage,
             using: selectedId
         )
 
-        isTranslating = false
+        var fullText = ""
+        do {
+            for try await chunk in stream {
+                fullText += chunk
+                translatedText = fullText
+            }
 
-        if let response {
-            translatedText = response.translatedText
-            // Only update detected language if we're in auto mode and it provided one
+            // Post-process: extract detected language tag if present
+            let (cleanedText, detectedLang) = LanguageDetectionHelper.extractDetectedLanguage(from: fullText)
+            translatedText = cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
+
             if sourceLanguage.code == "auto" {
-                if let detectedName = response.detectedLanguage {
-                    // Create a pseudo-language just for display, or just store the name
-                    // Here we just store it in detectedLanguage holding the original property
+                if let detectedName = detectedLang {
                     detectedLanguage = Language(code: "auto", name: detectedName, localizedName: detectedName, flag: "✨")
-                } else {
-                    detectedLanguage = nil
                 }
             } else {
-                detectedLanguage = nil // Clear if not auto
+                detectedLanguage = nil
             }
-        } else {
-            error = translationService.error ?? NSLocalizedString("error.translation_failed", comment: "Translation failed")
+        } catch {
+            self.error = error.localizedDescription
         }
+
+        isTranslating = false
+        translationService.isTranslating = false
     }
 
     /// Swap source and target languages and texts

@@ -263,9 +263,117 @@ final class OpenAIProvider: AIProvider {
         )
     }
 
-    // MARK: - Private
-
     private func buildSystemPrompt(request: TranslationRequest) -> String {
         return LanguageDetectionHelper.buildSystemPrompt(sourceLang: request.sourceLanguage.code == "auto" ? "auto" : request.sourceLanguage.name, targetLang: request.targetLanguage.name)
+    }
+
+    // MARK: - Streaming
+
+    func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    if let tokens = self.keychain.getOAuthTokens(forProvider: self.config.id) {
+                        try await self.streamViaCodex(request, tokens: tokens, continuation: continuation)
+                    } else if let apiKey = self.keychain.getAPIKey(forProvider: self.config.id) {
+                        try await self.streamViaAPI(request, apiKey: apiKey, continuation: continuation)
+                    } else {
+                        throw AIProviderError.notAuthenticated
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
+    /// Stream via Codex Responses API (OAuth / ChatGPT subscription)
+    private func streamViaCodex(_ request: TranslationRequest, tokens: OAuthTokens, continuation: AsyncThrowingStream<String, Error>.Continuation) async throws {
+        var currentTokens = tokens
+
+        if currentTokens.isExpired {
+            do {
+                AppLogger.info("OpenAI", "Token expired, refreshing...")
+                currentTokens = try await OAuthService.shared.refreshOpenAIToken(forProvider: config.id)
+            } catch {
+                throw AIProviderError.tokenExpired
+            }
+        }
+
+        let url = URL(string: "\(codexBaseURL)/responses")!
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(currentTokens.accessToken)", forHTTPHeaderField: "Authorization")
+        urlRequest.timeoutInterval = 60
+
+        let systemPrompt = buildSystemPrompt(request: request)
+        let body: [String: Any] = [
+            "model": config.model,
+            "instructions": systemPrompt,
+            "input": [
+                ["type": "message", "role": "user", "content": request.sourceText]
+            ],
+            "stream": true,
+            "store": false
+        ]
+
+        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw AIProviderError.apiError("OpenAI Codex stream error")
+        }
+
+        for try await line in bytes.lines {
+            if let delta = SSEStreamParser.parseCodexDelta(line) {
+                continuation.yield(delta)
+            }
+        }
+    }
+
+    /// Stream via standard Chat Completions API (API key)
+    private func streamViaAPI(_ request: TranslationRequest, apiKey: String, continuation: AsyncThrowingStream<String, Error>.Continuation) async throws {
+        let url = URL(string: "\(config.baseURL)/chat/completions")!
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        urlRequest.timeoutInterval = 60
+
+        let systemPrompt = buildSystemPrompt(request: request)
+        let body: [String: Any] = [
+            "model": config.model,
+            "messages": [
+                ["role": "system", "content": systemPrompt],
+                ["role": "user", "content": request.sourceText]
+            ],
+            "temperature": 0.3,
+            "max_tokens": 4096,
+            "stream": true
+        ]
+
+        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+        AppLogger.request("OpenAI·API", "POST stream \(url.absoluteString)")
+
+        let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AIProviderError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 401 {
+            throw AIProviderError.notAuthenticated
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw AIProviderError.apiError("OpenAI API stream error (\(httpResponse.statusCode))")
+        }
+
+        for try await line in bytes.lines {
+            if let delta = SSEStreamParser.parseOpenAIDelta(line) {
+                continuation.yield(delta)
+            }
+        }
     }
 }

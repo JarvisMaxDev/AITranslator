@@ -11,6 +11,26 @@ protocol AIProvider {
 
     /// Translate text from source to target language
     func translate(_ request: TranslationRequest) async throws -> TranslationResponse
+
+    /// Stream translation text token by token
+    func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error>
+}
+
+/// Default streaming implementation: falls back to non-streaming translate()
+extension AIProvider {
+    func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    let response = try await self.translate(request)
+                    continuation.yield(response.translatedText)
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
 }
 
 /// Common errors for providers

@@ -111,4 +111,60 @@ final class GeminiProvider: AIProvider {
         - If the text is already in the target language, return it as-is
         """
     }
+
+    // MARK: - Streaming
+
+    func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    guard let apiKey = self.keychain.getAPIKey(forProvider: self.config.id) else {
+                        throw AIProviderError.notAuthenticated
+                    }
+
+                    let url = URL(string: "\(self.config.baseURL)/chat/completions")!
+                    var urlRequest = URLRequest(url: url)
+                    urlRequest.httpMethod = "POST"
+                    urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                    urlRequest.timeoutInterval = 60
+
+                    let systemPrompt = self.buildSystemPrompt(request: request)
+                    let body: [String: Any] = [
+                        "model": self.config.model,
+                        "messages": [
+                            ["role": "system", "content": systemPrompt],
+                            ["role": "user", "content": request.sourceText]
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 4096,
+                        "stream": true
+                    ]
+
+                    urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+                    AppLogger.request("Gemini", "POST stream \(url.absoluteString)")
+
+                    let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        throw AIProviderError.invalidResponse
+                    }
+                    if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+                        throw AIProviderError.notAuthenticated
+                    }
+                    guard httpResponse.statusCode == 200 else {
+                        throw AIProviderError.apiError("Gemini stream error (\(httpResponse.statusCode))")
+                    }
+
+                    for try await line in bytes.lines {
+                        if let delta = SSEStreamParser.parseOpenAIDelta(line) {
+                            continuation.yield(delta)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
 }
