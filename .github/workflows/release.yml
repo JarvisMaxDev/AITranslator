@@ -166,7 +166,6 @@ jobs:
         env:
           CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-          CERTIFICATE_PEM: ${{ secrets.CERTIFICATE_PEM }}
         run: |
           # Create temporary keychain
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
@@ -180,17 +179,14 @@ jobs:
           security import $RUNNER_TEMP/cert.p12 -P "$CERTIFICATE_PASSWORD" \
             -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
 
-          # Trust the self-signed certificate for code signing
-          echo "$CERTIFICATE_PEM" > $RUNNER_TEMP/cert.pem
-          security add-trusted-cert -d -r trustRoot -p codeSign -k "$KEYCHAIN_PATH" $RUNNER_TEMP/cert.pem
-
-          # Set keychain search list
+          # Set keychain search list and allow codesign access
           security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
           security default-keychain -s "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # Verify
-          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          # Verify identity is available
+          security find-identity -v "$KEYCHAIN_PATH"
+          echo "✅ Certificate imported"
 
       - name: Install XcodeGen
         if: steps.version.outputs.should_release == 'true'
