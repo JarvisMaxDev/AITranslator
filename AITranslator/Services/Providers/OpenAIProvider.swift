@@ -320,7 +320,7 @@ final class OpenAIProvider: AIProvider {
             }
         }
 
-        let url = URL(string: "\(codexBaseURL)/responses")!
+        let url = URL(string: "\(codexBaseURL)/codex/responses")!
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
