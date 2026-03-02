@@ -67,7 +67,8 @@ struct TranslatorView: View {
                     placeholder: "",
                     isSource: true,
                     isLoading: false,
-                    detectedLanguage: viewModel.detectedLanguage?.name
+                    detectedLanguage: viewModel.detectedLanguage?.name,
+                    onBeforeTextChange: { viewModel.saveState() }
                 )
                 .frame(minWidth: 250, maxWidth: .infinity, maxHeight: .infinity)
 

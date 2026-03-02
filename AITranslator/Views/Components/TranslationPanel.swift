@@ -8,6 +8,7 @@ struct TranslationPanel: View {
     let isSource: Bool
     let isLoading: Bool
     var detectedLanguage: String? = nil
+    var onBeforeTextChange: (() -> Void)? = nil
 
     @State private var isCopied = false
 
@@ -100,6 +101,7 @@ struct TranslationPanel: View {
                     // Paste button
                     Button(action: {
                         if let clipboard = NSPasteboard.general.string(forType: .string) {
+                            onBeforeTextChange?()
                             text = clipboard
                         }
                     }) {
@@ -112,6 +114,7 @@ struct TranslationPanel: View {
 
                     // Clear button
                     Button(action: {
+                        onBeforeTextChange?()
                         withAnimation(.easeOut(duration: 0.2)) {
                             text = ""
                         }

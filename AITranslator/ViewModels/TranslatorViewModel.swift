@@ -20,6 +20,11 @@ final class TranslatorViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let recognizer = NLLanguageRecognizer()
 
+    // Undo/redo stacks for source text
+    private var undoStack: [(source: String, translated: String)] = []
+    private var redoStack: [(source: String, translated: String)] = []
+    private let maxUndoLevels = 50
+
     init(settingsViewModel: SettingsViewModel) {
         self.settingsViewModel = settingsViewModel
 
@@ -134,6 +139,7 @@ final class TranslatorViewModel: ObservableObject {
 
     /// Swap source and target languages and texts
     func swapLanguages() {
+        saveState()
         if sourceLanguage.code == "auto" {
             // When Auto Detect: use detected language as new target
             guard let detected = detectedLanguage else { return }
@@ -160,10 +166,39 @@ final class TranslatorViewModel: ObservableObject {
 
     /// Clear all text
     func clearAll() {
+        saveState()
         sourceText = ""
         translatedText = ""
         error = nil
     }
+
+    // MARK: - Undo / Redo
+
+    /// Save current state before a destructive change
+    func saveState() {
+        undoStack.append((source: sourceText, translated: translatedText))
+        if undoStack.count > maxUndoLevels { undoStack.removeFirst() }
+        redoStack.removeAll()
+    }
+
+    /// Undo last text change (Cmd+Z)
+    func undo() {
+        guard let state = undoStack.popLast() else { return }
+        redoStack.append((source: sourceText, translated: translatedText))
+        sourceText = state.source
+        translatedText = state.translated
+    }
+
+    /// Redo previously undone change (Cmd+Shift+Z)
+    func redo() {
+        guard let state = redoStack.popLast() else { return }
+        undoStack.append((source: sourceText, translated: translatedText))
+        sourceText = state.source
+        translatedText = state.translated
+    }
+
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
 
     /// Save language preferences to UserDefaults
     func saveLanguagePreferences() {

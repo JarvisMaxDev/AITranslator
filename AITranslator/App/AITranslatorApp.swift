@@ -29,6 +29,21 @@ struct AITranslatorApp: App {
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))
         .defaultSize(width: 900, height: 600)
+        .commands {
+            CommandGroup(replacing: .undoRedo) {
+                Button(NSLocalizedString("action.undo", comment: "Undo")) {
+                    translatorViewModel.undo()
+                }
+                .keyboardShortcut("z", modifiers: .command)
+                .disabled(!translatorViewModel.canUndo)
+
+                Button(NSLocalizedString("action.redo", comment: "Redo")) {
+                    translatorViewModel.redo()
+                }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .disabled(!translatorViewModel.canRedo)
+            }
+        }
 
         Window(NSLocalizedString("settings.title", comment: "Settings"), id: "settings") {
             SettingsView()
