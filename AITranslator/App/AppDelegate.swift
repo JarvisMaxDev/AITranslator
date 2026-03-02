@@ -159,13 +159,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 if let text = selectedText, !text.isEmpty {
                     // AX worked (most apps) — use selected text directly
-                    AppLogger.shared.log("Hotkey: AX captured '\(text.prefix(30))...'", level: .info, category: "Hotkey")
+                    AppLogger.shared.log(.info, category: "Hotkey", message: "AX captured '\(text.prefix(30))...'")
                     DispatchQueue.main.async {
                         delegate.handleHotkey(text: text)
                     }
                 } else {
                     // AX failed (Terminal, etc.) — simulate Cmd+C to copy selection
-                    AppLogger.shared.log("Hotkey: AX returned nil, simulating Cmd+C", level: .info, category: "Hotkey")
+                    AppLogger.shared.log(.info, category: "Hotkey", message: "AX returned nil, simulating Cmd+C")
 
                     // Save current clipboard
                     let pasteboard = NSPasteboard.general
@@ -189,7 +189,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         let text: String
                         if didChange && !newContent.isEmpty {
                             text = newContent
-                            AppLogger.shared.log("Hotkey: Cmd+C captured '\(text.prefix(30))...'", level: .info, category: "Hotkey")
+                            AppLogger.shared.log(.info, category: "Hotkey", message: "Cmd+C captured '\(text.prefix(30))...'")
 
                             // Restore original clipboard
                             if let old = oldContent {
@@ -199,7 +199,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         } else {
                             // Nothing was selected — open empty
                             text = ""
-                            AppLogger.shared.log("Hotkey: No selection found", level: .info, category: "Hotkey")
+                            AppLogger.shared.log(.info, category: "Hotkey", message: "No selection found")
                         }
 
                         DispatchQueue.main.async {
