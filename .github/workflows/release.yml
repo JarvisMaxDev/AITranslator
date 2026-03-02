@@ -3,23 +3,26 @@ name: Release App
 on:
   push:
     tags:
-      - 'v*' # Trigger on tags like v1.0.0
+      - "v*" # Trigger on tags like v1.0.0
   workflow_dispatch: # Allow manual triggering
+
+permissions:
+  contents: write
 
 jobs:
   build-and-release:
     runs-on: macos-15
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Generate Xcode Project
         run: xcodegen generate
-        
+
       - name: Build Release
         run: |
           xcodebuild -project AITranslator.xcodeproj \
