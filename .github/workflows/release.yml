@@ -16,6 +16,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            # For workflow_dispatch — use latest tag or fallback
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            VERSION="${LATEST_TAG#v}"
+          fi
+          # Build number from git commit count
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "📦 Version: $VERSION (build $BUILD_NUMBER)"
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -32,8 +50,18 @@ jobs:
             CODE_SIGN_STYLE="Manual" \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build_number }}" \
             clean build \
             SYMROOT="$(pwd)/build"
+
+      - name: Verify version in app
+        run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" \
+            "build/Release/AI Translator.app/Contents/Info.plist")
+          BUILD=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" \
+            "build/Release/AI Translator.app/Contents/Info.plist")
+          echo "✅ App version: $VERSION (build $BUILD)"
 
       - name: Create DMG
         run: |
@@ -53,6 +81,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          name: "AI Translator v${{ steps.version.outputs.version }}"
           files: build/Release/AITranslator.dmg
           generate_release_notes: true
         env:
