@@ -1,6 +1,7 @@
 # AI Translator — Текущие задачи
 
 ## Сделано
+
 - [x] Qwen OAuth + API (device code flow, enable_thinking=false)
 - [x] Claude OAuth + API (PKCE, localhost callback, anthropic-beta header)
 - [x] Настройки: нативное окно, выбор модели (API), сохранить/отмена
@@ -18,8 +19,10 @@
 ## MVP завершён! 🎉
 
 ## Публикация и CI/CD
-- [ ] Залить код в репозиторий Jarvis на GitHub
-- [ ] Добавить `.github/workflows/release.yml` для автоматической сборки приложения (xcodebuild archive)
-- [ ] Настроить создание архива/образа (ZIP или DMG)
-- [ ] Настроить авто-релизы в GitHub при создании тэга (напр. v1.0.0)
-- [ ] Опубликовать Homebrew Cask формулу (`aitranslator.rb`) для быстрой установки
+
+- [x] Залить код в репозиторий Jarvis на GitHub
+- [x] Добавить `.github/workflows/release.yml` для автоматической сборки приложения (xcodebuild archive)
+- [x] Настроить создание архива/образа (ZIP или DMG)
+- [x] Настроить авто-релизы в GitHub при создании тэга (напр. v1.0.0)
+- [x] Автоверсия из git tag → CFBundleShortVersionString + build number
+- [x] Опубликовать Homebrew Cask формулу (`aitranslator.rb`) для быстрой установки
