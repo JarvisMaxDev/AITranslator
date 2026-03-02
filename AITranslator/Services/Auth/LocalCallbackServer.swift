@@ -100,7 +100,7 @@ final class LocalCallbackServer {
                 // Send response back to browser
                 let successHTML = """
                     <html>
-                    <head><title>Authorization Complete</title></head>
+                    <head><meta charset="utf-8"><title>Authorization Complete</title></head>
                     <body style="font-family:-apple-system,system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a1a;color:#fff">
                     <div style="text-align:center">
                     <h1>✅ Authorization Successful</h1>
@@ -110,9 +110,12 @@ final class LocalCallbackServer {
                     </body>
                     </html>
                     """
-                let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n\(successHTML)"
-                _ = response.withCString { ptr in
-                    send(clientSocket, ptr, strlen(ptr), 0)
+                let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n\(successHTML)"
+                // Use UTF-8 data directly instead of withCString (which breaks on multi-byte chars like ✅)
+                if let data = response.data(using: .utf8) {
+                    data.withUnsafeBytes { ptr in
+                        _ = send(clientSocket, ptr.baseAddress, data.count, 0)
+                    }
                 }
 
                 close(clientSocket)
