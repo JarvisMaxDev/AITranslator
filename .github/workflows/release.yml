@@ -2,15 +2,19 @@ name: Release App
 
 on:
   push:
-    tags:
-      - "v*" # Trigger on tags like v1.0.0
-  workflow_dispatch: # Allow manual triggering
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: "Force release even without feat/fix commits"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  release:
     runs-on: macos-15
 
     steps:
@@ -18,30 +22,155 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from tag
+      - name: Determine next version
         id: version
         run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            # For workflow_dispatch — use latest tag or fallback
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-            VERSION="${LATEST_TAG#v}"
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+
+          CURRENT_VERSION="${LATEST_TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+          # Analyze commits since last tag
+          COMMITS=$(git log "$LATEST_TAG"..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+
+          if [ -z "$COMMITS" ]; then
+            echo "📭 No new commits since $LATEST_TAG"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          # Build number from git commit count
+
+          echo "📋 Commits since $LATEST_TAG:"
+          echo "$COMMITS"
+
+          # Determine bump type
+          BUMP="none"
+          HAS_BREAKING=false
+          HAS_FEAT=false
+          HAS_FIX=false
+
+          while IFS= read -r msg; do
+            # Check for breaking changes
+            if echo "$msg" | grep -qiE "^[a-z]+(\(.+\))?!:" || echo "$msg" | grep -qi "BREAKING CHANGE"; then
+              HAS_BREAKING=true
+            fi
+            # Check for features
+            if echo "$msg" | grep -qE "^feat(\(.+\))?:"; then
+              HAS_FEAT=true
+            fi
+            # Check for fixes and other releasable types
+            if echo "$msg" | grep -qE "^(fix|perf|refactor)(\(.+\))?:"; then
+              HAS_FIX=true
+            fi
+          done <<< "$COMMITS"
+
+          if [ "$HAS_BREAKING" = true ]; then
+            BUMP="major"
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          elif [ "$HAS_FEAT" = true ]; then
+            BUMP="minor"
+            MINOR=$((MINOR + 1)); PATCH=0
+          elif [ "$HAS_FIX" = true ]; then
+            BUMP="patch"
+            PATCH=$((PATCH + 1))
+          fi
+
+          FORCE="${{ inputs.force_release }}"
+          if [ "$BUMP" = "none" ] && [ "$FORCE" != "true" ]; then
+            echo "⏭️  No releasable commits (only docs/ci/chore/style/test). Skipping."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$BUMP" = "none" ] && [ "$FORCE" = "true" ]; then
+            BUMP="patch"
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
           BUILD_NUMBER=$(git rev-list --count HEAD)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "🚀 $BUMP bump: $CURRENT_VERSION → $NEW_VERSION (build $BUILD_NUMBER)"
+
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "📦 Version: $VERSION (build $BUILD_NUMBER)"
+
+      - name: Generate changelog
+        id: changelog
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          LATEST_TAG="${{ steps.version.outputs.latest_tag }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          COMMITS=$(git log "$LATEST_TAG"..HEAD --pretty=format:"%H %s" 2>/dev/null || git log --pretty=format:"%H %s")
+
+          {
+            echo "body<<CHANGELOG_EOF"
+            echo "## What's Changed in $TAG"
+            echo ""
+
+            # Features
+            FEATS=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ feat(\(.+\))?:" | sed 's/^[a-f0-9]* feat\(.*\)\?: /- /' || true)
+            if [ -n "$FEATS" ]; then
+              echo "### ✨ Features"
+              echo "$FEATS"
+              echo ""
+            fi
+
+            # Fixes
+            FIXES=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ fix(\(.+\))?:" | sed 's/^[a-f0-9]* fix\(.*\)\?: /- /' || true)
+            if [ -n "$FIXES" ]; then
+              echo "### � Bug Fixes"
+              echo "$FIXES"
+              echo ""
+            fi
+
+            # Performance
+            PERFS=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ perf(\(.+\))?:" | sed 's/^[a-f0-9]* perf\(.*\)\?: /- /' || true)
+            if [ -n "$PERFS" ]; then
+              echo "### ⚡ Performance"
+              echo "$PERFS"
+              echo ""
+            fi
+
+            # Refactors
+            REFS=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ refactor(\(.+\))?:" | sed 's/^[a-f0-9]* refactor\(.*\)\?: /- /' || true)
+            if [ -n "$REFS" ]; then
+              echo "### ♻️ Refactoring"
+              echo "$REFS"
+              echo ""
+            fi
+
+            echo "---"
+            echo "**Install:** \`brew tap JarvisMaxDev/tap && brew install --cask aitranslator\`"
+            echo "**Update:** \`brew upgrade --cask aitranslator\`"
+
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create git tag
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.name "JarvisMaxDev"
+          git config user.email "jarvis@aitranslator.dev"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
 
       - name: Install XcodeGen
+        if: steps.version.outputs.should_release == 'true'
         run: brew install xcodegen
 
       - name: Generate Xcode Project
+        if: steps.version.outputs.should_release == 'true'
         run: xcodegen generate
 
       - name: Build Release
+        if: steps.version.outputs.should_release == 'true'
         run: |
           xcodebuild -project AITranslator.xcodeproj \
             -scheme AITranslator \
@@ -56,6 +185,7 @@ jobs:
             SYMROOT="$(pwd)/build"
 
       - name: Verify version in app
+        if: steps.version.outputs.should_release == 'true'
         run: |
           VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" \
             "build/Release/AI Translator.app/Contents/Info.plist")
@@ -64,6 +194,7 @@ jobs:
           echo "✅ App version: $VERSION (build $BUILD)"
 
       - name: Create DMG
+        if: steps.version.outputs.should_release == 'true'
         run: |
           cd build/Release
           mkdir -p dmg_staging
@@ -78,11 +209,68 @@ jobs:
           shasum -a 256 AITranslator.dmg
 
       - name: Create GitHub Release
+        if: steps.version.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: "AI Translator v${{ steps.version.outputs.version }}"
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "AI Translator ${{ steps.version.outputs.tag }}"
+          body: ${{ steps.changelog.outputs.body }}
           files: build/Release/AITranslator.dmg
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Homebrew Cask
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG_SHA=$(shasum -a 256 build/Release/AITranslator.dmg | awk '{print $1}')
+
+          CASK_CONTENT=$(cat <<RUBY
+          cask "aitranslator" do
+            version "$VERSION"
+            sha256 "$DMG_SHA"
+
+            url "https://github.com/JarvisMaxDev/AITranslator/releases/download/v#{version}/AITranslator.dmg"
+            name "AI Translator"
+            desc "Native macOS AI translator — OpenAI, Claude, Qwen, Gemini with global hotkey"
+            homepage "https://github.com/JarvisMaxDev/AITranslator"
+
+            depends_on macos: ">= :sonoma"
+
+            app "AI Translator.app"
+
+            zap trash: [
+              "~/.aitranslator",
+              "~/Library/Preferences/com.aitranslator.app.plist",
+            ]
+          end
+          RUBY
+          )
+
+          # Get current file SHA from homebrew-tap repo
+          FILE_SHA=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/JarvisMaxDev/homebrew-tap/contents/Casks/aitranslator.rb" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['sha'])")
+
+          # Update file via GitHub API
+          ENCODED=$(echo "$CASK_CONTENT" | base64)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -X PUT \
+            "https://api.github.com/repos/JarvisMaxDev/homebrew-tap/contents/Casks/aitranslator.rb" \
+            -d "$(python3 -c "
+          import json, base64
+          content = '''$CASK_CONTENT'''
+          print(json.dumps({
+              'message': 'chore: bump aitranslator to v$VERSION',
+              'content': base64.b64encode(content.encode()).decode(),
+              'sha': '$FILE_SHA'
+          }))
+          ")")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Homebrew Cask updated to v$VERSION"
+          else
+            echo "⚠️ Failed to update Homebrew Cask (HTTP $HTTP_CODE)"
+          fi
