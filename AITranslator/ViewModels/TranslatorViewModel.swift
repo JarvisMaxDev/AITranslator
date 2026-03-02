@@ -106,7 +106,7 @@ final class TranslatorViewModel: ObservableObject {
                 if let detectedName = response.detectedLanguage {
                     // Create a pseudo-language just for display, or just store the name
                     // Here we just store it in detectedLanguage holding the original property
-                    detectedLanguage = Language(code: "auto", name: "\(detectedName) (auto)", localizedName: "\(detectedName) (auto)", flag: "✨")
+                    detectedLanguage = Language(code: "auto", name: detectedName, localizedName: detectedName, flag: "✨")
                 } else {
                     detectedLanguage = nil
                 }
