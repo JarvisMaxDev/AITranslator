@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Reusable translation text panel (source or target)
 struct TranslationPanel: View {
@@ -9,6 +10,7 @@ struct TranslationPanel: View {
     let isLoading: Bool
     var detectedLanguage: String? = nil
     var onBeforeTextChange: (() -> Void)? = nil
+    var onImagePasted: ((NSImage) -> Void)? = nil
 
     @State private var isCopied = false
 
@@ -100,9 +102,12 @@ struct TranslationPanel: View {
                 Spacer()
                 
                 if isSource {
-                    // Paste button
+                    // Paste button — detects image in clipboard
                     Button(action: {
-                        if let clipboard = NSPasteboard.general.string(forType: .string) {
+                        if OCRService.clipboardContainsImage(), let image = OCRService.imageFromClipboard() {
+                            // Image in clipboard — run OCR
+                            onImagePasted?(image)
+                        } else if let clipboard = NSPasteboard.general.string(forType: .string) {
                             onBeforeTextChange?()
                             text = clipboard
                         }
@@ -113,6 +118,25 @@ struct TranslationPanel: View {
                     }
                     .buttonStyle(.plain)
                     .help(NSLocalizedString("action.paste", comment: "Paste"))
+
+                    // Load image button — opens file picker
+                    Button(action: {
+                        let panel = NSOpenPanel()
+                        panel.allowedContentTypes = [.image, .png, .jpeg, .tiff, .bmp]
+                        panel.allowsMultipleSelection = false
+                        panel.canChooseDirectories = false
+                        panel.message = NSLocalizedString("ocr.select_image", comment: "Select an image for text recognition")
+                        if panel.runModal() == .OK, let url = panel.url,
+                           let image = OCRService.imageFromFile(url) {
+                            onImagePasted?(image)
+                        }
+                    }) {
+                        Image(systemName: "photo")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(NSLocalizedString("ocr.load_image", comment: "Load image for OCR"))
 
                     // Clear button
                     Button(action: {

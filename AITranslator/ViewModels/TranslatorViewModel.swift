@@ -10,6 +10,7 @@ final class TranslatorViewModel: ObservableObject {
     @Published var sourceLanguage: Language = .autoDetect
     @Published var targetLanguage: Language = LanguageList.all.first(where: { $0.code == "ru" }) ?? LanguageList.all[1]
     @Published var isTranslating: Bool = false
+    @Published var isProcessingOCR: Bool = false
     @Published var error: String?
     @Published var characterCount: Int = 0
     /// Detected language when sourceLanguage is Auto Detect
@@ -170,6 +171,38 @@ final class TranslatorViewModel: ObservableObject {
         sourceText = ""
         translatedText = ""
         error = nil
+    }
+
+    // MARK: - OCR
+
+    /// Process an image: run OCR and auto-translate the recognized text
+    func processImage(_ image: NSImage) async {
+        saveState()
+        isProcessingOCR = true
+        error = nil
+
+        do {
+            AppLogger.info("OCR", "Starting text recognition...")
+            let recognizedText = try await OCRService.shared.recognizeText(from: image)
+
+            if recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                AppLogger.warning("OCR", "No text recognized in image")
+                error = NSLocalizedString("ocr.no_text", comment: "No text found in image")
+                isProcessingOCR = false
+                return
+            }
+
+            AppLogger.success("OCR", "Recognized \(recognizedText.count) characters")
+            sourceText = recognizedText
+            isProcessingOCR = false
+
+            // Auto-translate
+            await translate()
+        } catch {
+            AppLogger.error("OCR", "Recognition failed", details: error.localizedDescription)
+            self.error = error.localizedDescription
+            isProcessingOCR = false
+        }
     }
 
     // MARK: - Undo / Redo

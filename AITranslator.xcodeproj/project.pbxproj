@@ -10,6 +10,7 @@
 		011B31EB3462030844C3C723 /* PopupTranslatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80911CED3D4A997B1AF4D1C8 /* PopupTranslatorView.swift */; };
 		3848751BC558022596D4F3AB /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220A2D33BE8B6110A90F23FB /* HotkeyRecorderView.swift */; };
 		3B14EDF6124F59357F55AA24 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 70DB81D2CFA95B4BE5EB22EE /* Localizable.strings */; };
+		40C02F386ECDB4CFA44ACAF5 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */; };
 		471698BA8E57239DE4314CFD /* LanguageSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1346DCDAF2A1E41C377366C3 /* LanguageSelectorView.swift */; };
 		4F2EDD07859CD05FA4021B91 /* TranslationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 627D26851CCFC69E3D8C1075 /* TranslationPanel.swift */; };
 		5241BEF9EB0EBEBE93ACBDA0 /* Language.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B205FD44A746E0B21AFC4A /* Language.swift */; };
@@ -52,6 +53,7 @@
 		24C12507A3E2B0B129ADB8E0 /* LocalCallbackServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCallbackServer.swift; sourceTree = "<group>"; };
 		3A393634FA76187347E2D414 /* SSEStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEStreamParser.swift; sourceTree = "<group>"; };
 		482A50FD172606D842B28BA2 /* OAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthService.swift; sourceTree = "<group>"; };
+		4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
 		4DBD829436296526AE36F9A0 /* GeminiProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiProvider.swift; sourceTree = "<group>"; };
 		4FBE33C2478CB7650365239A /* QwenProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QwenProvider.swift; sourceTree = "<group>"; };
 		627D26851CCFC69E3D8C1075 /* TranslationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPanel.swift; sourceTree = "<group>"; };
@@ -192,6 +194,7 @@
 				B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */,
 				8A3B01A08A419F5D2D9A2B59 /* KeychainService.swift */,
 				B555EE2B08A08539440FAB28 /* ModelService.swift */,
+				4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */,
 				3A393634FA76187347E2D414 /* SSEStreamParser.swift */,
 				A14885D5F11B7413D17510A9 /* TranslationService.swift */,
 				5DE60ADD17BA496959097953 /* Auth */,
@@ -332,6 +335,7 @@
 				FC27C2FD89E80D6782B93869 /* LocalCallbackServer.swift in Sources */,
 				A9E45AB4FE205AA4E5F033D3 /* ModelService.swift in Sources */,
 				8AEE7918902A0557D5687612 /* OAuthService.swift in Sources */,
+				40C02F386ECDB4CFA44ACAF5 /* OCRService.swift in Sources */,
 				B0F31D50BE23A274DD32F5CC /* OpenAIProvider.swift in Sources */,
 				011B31EB3462030844C3C723 /* PopupTranslatorView.swift in Sources */,
 				A5588EDDA4894E370A5C1B71 /* PopupViewModel.swift in Sources */,

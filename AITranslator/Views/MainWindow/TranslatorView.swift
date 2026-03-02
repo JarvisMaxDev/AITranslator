@@ -66,9 +66,12 @@ struct TranslatorView: View {
                     language: $viewModel.sourceLanguage,
                     placeholder: "",
                     isSource: true,
-                    isLoading: false,
+                    isLoading: viewModel.isProcessingOCR,
                     detectedLanguage: viewModel.detectedLanguage?.name,
-                    onBeforeTextChange: { viewModel.saveState() }
+                    onBeforeTextChange: { viewModel.saveState() },
+                    onImagePasted: { image in
+                        Task { await viewModel.processImage(image) }
+                    }
                 )
                 .frame(minWidth: 250, maxWidth: .infinity, maxHeight: .infinity)
 
