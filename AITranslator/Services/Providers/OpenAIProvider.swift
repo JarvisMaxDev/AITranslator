@@ -74,9 +74,18 @@ final class OpenAIProvider: AIProvider {
     }
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResponse {
-        // Choose path based on auth method
+        // Choose path based on auth method, with fallback
         if let tokens = keychain.getOAuthTokens(forProvider: config.id) {
-            return try await translateViaCodex(request, tokens: tokens)
+            do {
+                return try await translateViaCodex(request, tokens: tokens)
+            } catch {
+                // Codex failed — fall back to API key if available
+                if let apiKey = keychain.getAPIKey(forProvider: config.id) {
+                    AppLogger.info("OpenAI", "Codex failed, falling back to API key: \(error.localizedDescription)")
+                    return try await translateViaAPI(request, apiKey: apiKey)
+                }
+                throw error
+            }
         } else if let apiKey = keychain.getAPIKey(forProvider: config.id) {
             return try await translateViaAPI(request, apiKey: apiKey)
         } else {
@@ -274,7 +283,17 @@ final class OpenAIProvider: AIProvider {
             Task {
                 do {
                     if let tokens = self.keychain.getOAuthTokens(forProvider: self.config.id) {
-                        try await self.streamViaCodex(request, tokens: tokens, continuation: continuation)
+                        do {
+                            try await self.streamViaCodex(request, tokens: tokens, continuation: continuation)
+                        } catch {
+                            // Codex failed — fall back to API key if available
+                            if let apiKey = self.keychain.getAPIKey(forProvider: self.config.id) {
+                                AppLogger.info("OpenAI", "Codex failed, falling back to API key: \(error.localizedDescription)")
+                                try await self.streamViaAPI(request, apiKey: apiKey, continuation: continuation)
+                            } else {
+                                throw error
+                            }
+                        }
                     } else if let apiKey = self.keychain.getAPIKey(forProvider: self.config.id) {
                         try await self.streamViaAPI(request, apiKey: apiKey, continuation: continuation)
                     } else {
