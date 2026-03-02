@@ -51,6 +51,7 @@ struct TranslationPanel: View {
                 if isSource {
                     TextEditor(text: $text)
                         .font(.body)
+                        .lineSpacing(3)
                         .scrollContentBackground(.hidden)
                         .padding(.horizontal, 16)
                         .padding(.top, 0)
@@ -63,6 +64,7 @@ struct TranslationPanel: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(text)
                                     .font(.body)
+                                    .lineSpacing(3)
                                     .textSelection(.enabled)
                                     .frame(maxWidth: .infinity, alignment: .leading)
 
