@@ -159,7 +159,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 if let text = selectedText, !text.isEmpty {
                     // AX worked (most apps) — use selected text directly
-                    AppLogger.shared.log(.info, category: "Hotkey", message: "AX captured '\(text.prefix(30))...'")
+                    let hasNewlines = text.contains("\n")
+                    let newlineCount = text.filter { $0 == "\n" }.count
+                    AppLogger.shared.log(.info, category: "Hotkey", message: "AX captured '\(text.prefix(30))...' (len=\(text.count), newlines=\(newlineCount), hasNL=\(hasNewlines))")
                     DispatchQueue.main.async {
                         delegate.handleHotkey(text: text)
                     }
