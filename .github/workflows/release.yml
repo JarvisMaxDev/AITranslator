@@ -53,15 +53,12 @@ jobs:
           HAS_FIX=false
 
           while IFS= read -r msg; do
-            # Check for breaking changes
             if echo "$msg" | grep -qiE "^[a-z]+(\(.+\))?!:" || echo "$msg" | grep -qi "BREAKING CHANGE"; then
               HAS_BREAKING=true
             fi
-            # Check for features
             if echo "$msg" | grep -qE "^feat(\(.+\))?:"; then
               HAS_FEAT=true
             fi
-            # Check for fixes and other releasable types
             if echo "$msg" | grep -qE "^(fix|perf|refactor)(\(.+\))?:"; then
               HAS_FIX=true
             fi
@@ -113,7 +110,6 @@ jobs:
             echo "## What's Changed in $TAG"
             echo ""
 
-            # Features
             FEATS=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ feat(\(.+\))?:" | sed 's/^[a-f0-9]* feat\(.*\)\?: /- /' || true)
             if [ -n "$FEATS" ]; then
               echo "### ✨ Features"
@@ -121,15 +117,13 @@ jobs:
               echo ""
             fi
 
-            # Fixes
             FIXES=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ fix(\(.+\))?:" | sed 's/^[a-f0-9]* fix\(.*\)\?: /- /' || true)
             if [ -n "$FIXES" ]; then
-              echo "### � Bug Fixes"
+              echo "### 🐛 Bug Fixes"
               echo "$FIXES"
               echo ""
             fi
 
-            # Performance
             PERFS=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ perf(\(.+\))?:" | sed 's/^[a-f0-9]* perf\(.*\)\?: /- /' || true)
             if [ -n "$PERFS" ]; then
               echo "### ⚡ Performance"
@@ -137,7 +131,6 @@ jobs:
               echo ""
             fi
 
-            # Refactors
             REFS=$(echo "$COMMITS" | grep -E "^[a-f0-9]+ refactor(\(.+\))?:" | sed 's/^[a-f0-9]* refactor\(.*\)\?: /- /' || true)
             if [ -n "$REFS" ]; then
               echo "### ♻️ Refactoring"
@@ -167,26 +160,15 @@ jobs:
           CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
         run: |
-          # Create temporary keychain
-          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
-          KEYCHAIN_PASSWORD="ci-build-$(date +%s)"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          # Import certificate
-          echo "$CERTIFICATE_P12" | base64 --decode > $RUNNER_TEMP/cert.p12
-          security import $RUNNER_TEMP/cert.p12 -P "$CERTIFICATE_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-
-          # Set keychain search list and allow codesign access
-          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
-          security default-keychain -s "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          # Verify identity is available
-          security find-identity -v "$KEYCHAIN_PATH"
-          echo "✅ Certificate imported"
+          echo "$CERTIFICATE_P12" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import /tmp/cert.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          security add-trusted-cert -d -r trustRoot -p codeSign -k build.keychain /tmp/cert.p12 2>/dev/null || true
+          rm /tmp/cert.p12
+          security find-identity -v build.keychain
 
       - name: Install XcodeGen
         if: steps.version.outputs.should_release == 'true'
@@ -249,25 +231,21 @@ jobs:
       - name: Update Homebrew Cask
         if: steps.version.outputs.should_release == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APP_VERSION: ${{ steps.version.outputs.version }}
+          TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
         run: |
-          DMG_SHA=$(shasum -a 256 build/Release/AITranslator.dmg | awk '{print $1}')
-          export DMG_SHA
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA256=$(shasum -a 256 build/Release/AITranslator.dmg | awk '{print $1}')
+          echo "📦 Updating Cask to v${VERSION} (sha256: ${SHA256})"
 
-          python3 - <<'PYEOF'
-          import json, base64, urllib.request, os
+          git clone https://${TAP_TOKEN}@github.com/JarvisMaxDev/homebrew-tap.git /tmp/tap
+          cd /tmp/tap
 
-          token = os.environ["GH_TOKEN"]
-          version = os.environ["APP_VERSION"]
-          dmg_sha = os.environ["DMG_SHA"]
-          headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
+          cat > Casks/aitranslator.rb << CASKEOF
+          cask "aitranslator" do
+            version "${VERSION}"
+            sha256 "${SHA256}"
 
-          cask = f'''cask "aitranslator" do
-            version "{version}"
-            sha256 "{dmg_sha}"
-
-            url "https://github.com/JarvisMaxDev/AITranslator/releases/download/v#{{version}}/AITranslator.dmg"
+            url "https://github.com/JarvisMaxDev/AITranslator/releases/download/v#{version}/AITranslator.dmg"
             name "AI Translator"
             desc "Native macOS AI translator with global hotkey"
             homepage "https://github.com/JarvisMaxDev/AITranslator"
@@ -281,26 +259,11 @@ jobs:
               "~/Library/Preferences/com.aitranslator.app.plist",
             ]
           end
-          '''
+          CASKEOF
 
-          req = urllib.request.Request(
-              "https://api.github.com/repos/JarvisMaxDev/homebrew-tap/contents/Casks/aitranslator.rb",
-              headers=headers
-          )
-          file_sha = json.loads(urllib.request.urlopen(req).read())["sha"]
-
-          payload = json.dumps({
-              "message": f"chore: bump aitranslator to v{version}",
-              "content": base64.b64encode(cask.encode()).decode(),
-              "sha": file_sha
-          }).encode()
-
-          req = urllib.request.Request(
-              "https://api.github.com/repos/JarvisMaxDev/homebrew-tap/contents/Casks/aitranslator.rb",
-              data=payload,
-              headers={**headers, "Content-Type": "application/json"},
-              method="PUT"
-          )
-          resp = urllib.request.urlopen(req)
-          print(f"✅ Homebrew Cask updated to v{version} (HTTP {resp.status})")
-          PYEOF
+          git config user.name "JarvisMaxDev"
+          git config user.email "jarvis.max.dev@proton.me"
+          git add Casks/aitranslator.rb
+          git commit -m "chore: bump aitranslator to v${VERSION}"
+          git push
+          echo "✅ Homebrew Cask updated to v${VERSION}"
