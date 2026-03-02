@@ -320,10 +320,20 @@ final class OpenAIProvider: AIProvider {
         ]
 
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+        AppLogger.request("OpenAI·OAuth", "POST stream \(url.absoluteString)")
 
         let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw AIProviderError.apiError("OpenAI Codex stream error")
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AIProviderError.invalidResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            // Read error body for details
+            var errorLines: [String] = []
+            for try await line in bytes.lines { errorLines.append(line) }
+            let errorBody = errorLines.joined(separator: "\n")
+            AppLogger.error("OpenAI·OAuth", "Codex stream error (\(httpResponse.statusCode))", details: errorBody)
+            throw AIProviderError.apiError("OpenAI Codex error (\(httpResponse.statusCode)): \(errorBody.prefix(200))")
         }
 
         for try await line in bytes.lines {

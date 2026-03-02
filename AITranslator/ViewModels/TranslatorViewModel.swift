@@ -103,6 +103,7 @@ final class TranslatorViewModel: ObservableObject {
             for try await chunk in stream {
                 fullText += chunk
                 translatedText = fullText
+                await Task.yield() // Let SwiftUI re-render between chunks
             }
 
             // Post-process: extract detected language tag if present
