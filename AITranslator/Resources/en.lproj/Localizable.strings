@@ -79,3 +79,9 @@
 "error.provider_not_found" = "Provider not found";
 "error.translation_failed" = "Translation failed";
 "error.qwen_cli_not_found" = "Qwen CLI not found. Install 'qwen-code' CLI and run '/auth' first, or use an API key.";
+
+/* Accessibility */
+"accessibility.title" = "Accessibility Access Required";
+"accessibility.message" = "AI Translator needs Accessibility access to capture selected text with the global hotkey.\n\nPlease add it in System Settings > Privacy & Security > Accessibility.";
+"accessibility.open_settings" = "Open Settings";
+"accessibility.later" = "Later";

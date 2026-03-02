@@ -79,3 +79,9 @@
 "error.provider_not_found" = "Провайдер не найден";
 "error.translation_failed" = "Ошибка перевода";
 "error.qwen_cli_not_found" = "Qwen CLI не найден. Установите 'qwen-code' CLI и выполните '/auth', или используйте API-ключ.";
+
+/* Accessibility */
+"accessibility.title" = "Требуется доступ к Accessibility";
+"accessibility.message" = "AI Translator нужен доступ к Accessibility для захвата выделенного текста по глобальному хоткею.\n\nДобавьте приложение в Системные настройки > Конфиденциальность > Универсальный доступ.";
+"accessibility.open_settings" = "Открыть настройки";
+"accessibility.later" = "Позже";

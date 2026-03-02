@@ -459,12 +459,12 @@ struct SettingsView: View {
             VStack(spacing: 12) {
                 ForEach(ProviderType.allCases) { type in
                     Button(action: {
-                        let config = ProviderConfig(type: type)
-                        draftConfigs.append(config)
-                        if draftSelectedProviderId == nil {
-                            draftSelectedProviderId = config.id
-                        }
-                        hasChanges = true
+                        // Persist immediately so OAuth/API key flows can find this provider
+                        settingsViewModel.addProvider(type: type)
+                        // Sync drafts from the updated viewmodel state
+                        draftConfigs = settingsViewModel.providerConfigs
+                        draftSelectedProviderId = settingsViewModel.selectedProviderId
+                        hasChanges = false
                         showAddProvider = false
                     }) {
                         HStack(spacing: 16) {

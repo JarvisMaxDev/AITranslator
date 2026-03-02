@@ -20,7 +20,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func requestAccessibility() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
-        print("[Hotkey] Accessibility trusted: \(trusted)")
+        AppLogger.shared.info("Accessibility", "Trusted: \(trusted)")
+
+        if !trusted {
+            // Re-check after a delay — user may grant access via system dialog
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+                let rechecked = AXIsProcessTrusted()
+                AppLogger.shared.info("Accessibility", "Re-check after prompt: \(rechecked)")
+                if !rechecked {
+                    self?.showAccessibilityAlert()
+                }
+            }
+        }
+    }
+
+    private func showAccessibilityAlert() {
+        let alert = NSAlert()
+        alert.messageText = NSLocalizedString("accessibility.title", comment: "Accessibility Access Required")
+        alert.informativeText = NSLocalizedString("accessibility.message", comment: "AI Translator needs Accessibility access to capture selected text with the global hotkey. Please add it in System Settings > Privacy & Security > Accessibility.")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: NSLocalizedString("accessibility.open_settings", comment: "Open Settings"))
+        alert.addButton(withTitle: NSLocalizedString("accessibility.later", comment: "Later"))
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
