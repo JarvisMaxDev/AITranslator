@@ -156,11 +156,56 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let userData = userData else { return OSStatus(eventNotHandledErr) }
                 let delegate = userData.assumingMemoryBound(to: AppDelegate.self).pointee
                 let selectedText = AppDelegate.readSelectedText()
-                let clipboard = NSPasteboard.general.string(forType: .string) ?? ""
-                let text = selectedText ?? clipboard
-                print("[Hotkey] Captured — selected: \(selectedText != nil ? selectedText!.prefix(30) : "nil"), clipboard: \(clipboard.prefix(30))")
-                DispatchQueue.main.async {
-                    delegate.handleHotkey(text: text)
+
+                if let text = selectedText, !text.isEmpty {
+                    // AX worked (most apps) — use selected text directly
+                    AppLogger.shared.log("Hotkey: AX captured '\(text.prefix(30))...'", level: .info, category: "Hotkey")
+                    DispatchQueue.main.async {
+                        delegate.handleHotkey(text: text)
+                    }
+                } else {
+                    // AX failed (Terminal, etc.) — simulate Cmd+C to copy selection
+                    AppLogger.shared.log("Hotkey: AX returned nil, simulating Cmd+C", level: .info, category: "Hotkey")
+
+                    // Save current clipboard
+                    let pasteboard = NSPasteboard.general
+                    let oldChangeCount = pasteboard.changeCount
+                    let oldContent = pasteboard.string(forType: .string)
+
+                    // Simulate Cmd+C
+                    let src = CGEventSource(stateID: .hidSystemState)
+                    let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: true) // 'c' key
+                    let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: false)
+                    keyDown?.flags = .maskCommand
+                    keyUp?.flags = .maskCommand
+                    keyDown?.post(tap: .cghidEventTap)
+                    keyUp?.post(tap: .cghidEventTap)
+
+                    // Wait for clipboard to update
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.15) {
+                        let newContent = pasteboard.string(forType: .string) ?? ""
+                        let didChange = pasteboard.changeCount != oldChangeCount
+
+                        let text: String
+                        if didChange && !newContent.isEmpty {
+                            text = newContent
+                            AppLogger.shared.log("Hotkey: Cmd+C captured '\(text.prefix(30))...'", level: .info, category: "Hotkey")
+
+                            // Restore original clipboard
+                            if let old = oldContent {
+                                pasteboard.clearContents()
+                                pasteboard.setString(old, forType: .string)
+                            }
+                        } else {
+                            // Nothing was selected — open empty
+                            text = ""
+                            AppLogger.shared.log("Hotkey: No selection found", level: .info, category: "Hotkey")
+                        }
+
+                        DispatchQueue.main.async {
+                            delegate.handleHotkey(text: text)
+                        }
+                    }
                 }
                 return noErr
             },
