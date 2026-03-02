@@ -54,16 +54,38 @@ struct TranslationPanel: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 0)
                 } else {
-                    if isLoading {
+                    if isLoading && text.isEmpty {
+                        // Show spinner only when waiting for first chunk
                         translatingIndicator
                     } else {
                         ScrollView {
-                            Text(text)
-                                .font(.body)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 8)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(text)
+                                    .font(.body)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                // Streaming cursor: animated dots after text
+                                if isLoading {
+                                    HStack(spacing: 3) {
+                                        ForEach(0..<3, id: \.self) { i in
+                                            Circle()
+                                                .fill(.secondary)
+                                                .frame(width: 4, height: 4)
+                                                .opacity(0.4)
+                                                .animation(
+                                                    .easeInOut(duration: 0.5)
+                                                    .repeatForever(autoreverses: true)
+                                                    .delay(Double(i) * 0.15),
+                                                    value: isLoading
+                                                )
+                                        }
+                                    }
+                                    .padding(.top, 4)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
                         }
                     }
                 }
