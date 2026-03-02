@@ -248,18 +248,28 @@ jobs:
 
       - name: Update Homebrew Cask
         if: steps.version.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           DMG_SHA=$(shasum -a 256 build/Release/AITranslator.dmg | awk '{print $1}')
+          export DMG_SHA
 
-          CASK_CONTENT=$(cat <<RUBY
-          cask "aitranslator" do
-            version "$VERSION"
-            sha256 "$DMG_SHA"
+          python3 - <<'PYEOF'
+          import json, base64, urllib.request, os
 
-            url "https://github.com/JarvisMaxDev/AITranslator/releases/download/v#{version}/AITranslator.dmg"
+          token = os.environ["GH_TOKEN"]
+          version = os.environ["APP_VERSION"]
+          dmg_sha = os.environ["DMG_SHA"]
+          headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
+
+          cask = f'''cask "aitranslator" do
+            version "{version}"
+            sha256 "{dmg_sha}"
+
+            url "https://github.com/JarvisMaxDev/AITranslator/releases/download/v#{{version}}/AITranslator.dmg"
             name "AI Translator"
-            desc "Native macOS AI translator — OpenAI, Claude, Qwen, Gemini with global hotkey"
+            desc "Native macOS AI translator with global hotkey"
             homepage "https://github.com/JarvisMaxDev/AITranslator"
 
             depends_on macos: ">= :sonoma"
@@ -271,33 +281,26 @@ jobs:
               "~/Library/Preferences/com.aitranslator.app.plist",
             ]
           end
-          RUBY
+          '''
+
+          req = urllib.request.Request(
+              "https://api.github.com/repos/JarvisMaxDev/homebrew-tap/contents/Casks/aitranslator.rb",
+              headers=headers
           )
+          file_sha = json.loads(urllib.request.urlopen(req).read())["sha"]
 
-          # Get current file SHA from homebrew-tap repo
-          FILE_SHA=$(curl -s \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/JarvisMaxDev/homebrew-tap/contents/Casks/aitranslator.rb" \
-            | python3 -c "import json,sys; print(json.load(sys.stdin)['sha'])")
+          payload = json.dumps({
+              "message": f"chore: bump aitranslator to v{version}",
+              "content": base64.b64encode(cask.encode()).decode(),
+              "sha": file_sha
+          }).encode()
 
-          # Update file via GitHub API
-          ENCODED=$(echo "$CASK_CONTENT" | base64)
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -X PUT \
-            "https://api.github.com/repos/JarvisMaxDev/homebrew-tap/contents/Casks/aitranslator.rb" \
-            -d "$(python3 -c "
-          import json, base64
-          content = '''$CASK_CONTENT'''
-          print(json.dumps({
-              'message': 'chore: bump aitranslator to v$VERSION',
-              'content': base64.b64encode(content.encode()).decode(),
-              'sha': '$FILE_SHA'
-          }))
-          ")")
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Homebrew Cask updated to v$VERSION"
-          else
-            echo "⚠️ Failed to update Homebrew Cask (HTTP $HTTP_CODE)"
-          fi
+          req = urllib.request.Request(
+              "https://api.github.com/repos/JarvisMaxDev/homebrew-tap/contents/Casks/aitranslator.rb",
+              data=payload,
+              headers={**headers, "Content-Type": "application/json"},
+              method="PUT"
+          )
+          resp = urllib.request.urlopen(req)
+          print(f"✅ Homebrew Cask updated to v{version} (HTTP {resp.status})")
+          PYEOF
