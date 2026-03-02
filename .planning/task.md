@@ -26,3 +26,17 @@
 - [x] Настроить авто-релизы в GitHub при создании тэга (напр. v1.0.0)
 - [x] Автоверсия из git tag → CFBundleShortVersionString + build number
 - [x] Опубликовать Homebrew Cask формулу (`aitranslator.rb`) для быстрой установки
+
+## Багфиксы (v1.1.0 – v1.1.2)
+
+- [x] Connect button не работал — провайдер сохрялся в draftConfigs вместо ViewModel
+- [x] Accessibility prompt — re-check + user-facing alert c кнопкой «Open Settings»
+- [x] UTF-8 на странице OAuth callback — ✅ вместо âœ… (Data-based sending + charset)
+
+## Автоматизация CI/CD (v1.1.2 – v1.1.5)
+
+- [x] Semantic release — анализ conventional commits, автобамп версий
+- [x] Code signing сертификат `AITranslator Dev` в CI (GitHub Secrets)
+- [x] Авто-генерация changelog (feat/fix/perf/refactor)
+- [x] Авто-обновление Homebrew Cask (git clone + push, TAP_GITHUB_TOKEN)
+- [x] Git user настроен как JarvisMaxDev (noreply email)

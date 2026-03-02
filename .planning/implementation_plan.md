@@ -8,51 +8,57 @@
 
 ### ✅ Реализовано (MVP)
 
-| Функция | Детали |
-|---------|--------|
-| Двухпанельный переводчик | Источник → перевод, TextEditor с placeholder |
-| **4 AI-провайдера** | Qwen, Claude, OpenAI, Gemini |
-| Qwen + Claude OAuth | Device code flow (Qwen), PKCE + localhost callback (Claude) |
-| OpenAI + Gemini | API key auth, OpenAI-совместимый формат |
-| Загрузка моделей | `/v1/models` API + hardcoded fallback |
-| Настройки | Нативное окно, выбор модели, Save/Cancel (всегда видны) |
-| Выбор языка | Popover + поиск + флаги + недавние языки |
-| Авто-определение языка | `NLLanguageRecognizer`, отображение "(auto)" |
-| ⇄ Swap языков/текстов | Работает с Auto Detect |
-| Глобальный хоткей | ⌘⇧C (настраиваемый через HotkeyRecorder) |
-| Auto-refresh токенов | Qwen (`x-www-form-urlencoded`) + Claude (JSON) |
-| Cmd+Enter | Отправка перевода |
-| Понятные ошибки | Локализованные сообщения |
-| Локализация RU/EN | По языку системы + переключатель в настройках |
-| Переключатель языка апки | RU/EN в настройках + alert о рестарте |
-| Консоль отладки | AppLogger + ConsoleView (⌘L), JSON payload/response |
+| Функция                  | Детали                                                      |
+| ------------------------ | ----------------------------------------------------------- |
+| Двухпанельный переводчик | Источник → перевод, TextEditor с placeholder                |
+| **4 AI-провайдера**      | Qwen, Claude, OpenAI, Gemini                                |
+| Qwen + Claude OAuth      | Device code flow (Qwen), PKCE + localhost callback (Claude) |
+| OpenAI + Gemini          | API key auth, OpenAI-совместимый формат                     |
+| Загрузка моделей         | `/v1/models` API + hardcoded fallback                       |
+| Настройки                | Нативное окно, выбор модели, Save/Cancel (всегда видны)     |
+| Выбор языка              | Popover + поиск + флаги + недавние языки                    |
+| Авто-определение языка   | `NLLanguageRecognizer`, отображение "(auto)"                |
+| ⇄ Swap языков/текстов    | Работает с Auto Detect                                      |
+| Глобальный хоткей        | ⌘⇧C (настраиваемый через HotkeyRecorder)                    |
+| Auto-refresh токенов     | Qwen (`x-www-form-urlencoded`) + Claude (JSON)              |
+| Cmd+Enter                | Отправка перевода                                           |
+| Понятные ошибки          | Локализованные сообщения                                    |
+| Локализация RU/EN        | По языку системы + переключатель в настройках               |
+| Консоль отладки          | AppLogger + ConsoleView (⌘L), JSON payload/response         |
 
-### 🔄 В работе
-- [x] OpenAI / GPT провайдер (API key + OAuth через ChatGPT подписку) ✅
-- [x] UI/UX улучшения (панели, анимации, статус-бар) ✅
+### ✅ CI/CD (полностью автоматизировано)
+
+| Функция                   | Детали                                                              |
+| ------------------------- | ------------------------------------------------------------------- |
+| **Semantic release**      | Анализ conventional commits → auto patch/minor/major                |
+| **Code signing**          | `AITranslator Dev` self-signed cert, импорт в CI из secrets         |
+| **Auto-versioning**       | Git tag → `MARKETING_VERSION` + commit count build number           |
+| **Auto-changelog**        | Группировка по типу (feat/fix/perf/refactor)                        |
+| **GitHub Release**        | Автосоздание с DMG + changelog                                      |
+| **Homebrew Cask**         | Автообновление homebrew-tap через git clone+push                    |
+| **Accessibility persist** | Code signing сохраняет Accessibility permissions между обновлениями |
 
 ### 📋 Следующие задачи
 
-#### Сейчас
-- [ ] Опубликовать в репозиторий Jarvis (GitHub)
-- [ ] Настроить CI/CD (GitHub Actions) для 자동 сборки релизов (DMG/ZIP)
-- [ ] Настроить установку через Homebrew (создание Cask)
 - [ ] Стриминг перевода (токен за токеном)
 - [ ] Перевод документов
 - [ ] OCR (скриншот → текст → перевод)
 - [ ] TTS (озвучка перевода)
-- [ ] Браузерное расширение (Chrome/Safari)
-
-#### Потом
-- [ ] Стиль перевода (формальный/разговорный/технический) по провайдеру
-
-#### Может быть
-- [ ] Google Gemini провайдер (код готов, нужен API key через AI Studio)
+- [ ] Автозагрузка при входе в систему
 - [ ] Кастомный OpenAI-совместимый эндпоинт (Ollama, LM Studio, OpenRouter)
-- [ ] История переводов (последние N)
+- [ ] История переводов
 
-#### При установке в систему
-- [ ] Автозагрузка при входе в систему (hidden, без окна)
+---
+
+## Как работает релиз
+
+```
+git commit -m "fix: описание"  →  auto patch (1.1.5 → 1.1.6)
+git commit -m "feat: описание" →  auto minor (1.1.6 → 1.2.0)
+git commit -m "feat!: описание"→  auto major (1.2.0 → 2.0.0)
+git commit -m "ci: описание"   →  пропуск (без релиза)
+git push origin main            →  CI всё делает автоматически
+```
 
 ---
 
@@ -60,61 +66,33 @@
 
 ```
 AITranslator/
-├── App/              # AITranslatorApp (точка входа), AppDelegate (хоткей, статус-бар, меню)
-├── Models/
-│   ├── Provider.swift    # ProviderType enum (qwen/anthropic/openai/gemini), ProviderConfig
-│   ├── Language.swift    # Language struct, LanguageList (список языков + флаги)
-│   └── Translation.swift # TranslationRequest, TranslationResponse
+├── App/              # AITranslatorApp, AppDelegate (хоткей, статус-бар, Accessibility)
+├── Models/           # Provider, Language, Translation
 ├── Services/
-│   ├── Providers/
-│   │   ├── AIProvider.swift       # Протокол AIProvider + AIProviderError
-│   │   ├── QwenProvider.swift     # OAuth + API key, OpenAI-совместимый
-│   │   ├── AnthropicProvider.swift# OAuth + API key, Messages API
-│   │   ├── OpenAIProvider.swift   # API key only, chat/completions
-│   │   └── GeminiProvider.swift   # API key only, OpenAI-совместимый endpoint
-│   ├── Auth/
-│   │   ├── OAuthService.swift     # OAuth flows (device code, PKCE, token refresh)
-│   │   ├── KeychainService.swift  # Файловое хранилище токенов (~/.aitranslator/credentials/)
-│   │   └── OAuthCallbackServer.swift # Localhost HTTP server для OAuth callback
-│   ├── AppLogger.swift            # Singleton логгер для консоли отладки
-│   ├── ModelService.swift         # Загрузка моделей с API
-│   └── TranslationService.swift   # Оркестратор перевода (выбор провайдера, error handling)
-├── ViewModels/
-│   ├── TranslatorViewModel.swift  # Состояние переводчика, авто-детект языка, swap
-│   └── SettingsViewModel.swift    # Draft state, save/cancel, OAuth flow, API key management
-├── Views/
-│   ├── TranslatorView.swift       # Главное окно (двухпанельный переводчик)
-│   ├── Settings/
-│   │   └── SettingsView.swift     # Настройки (провайдеры, хоткей, язык апки)
-│   ├── Components/
-│   │   ├── LanguageSelectorView.swift  # Popover с поиском + флаги
-│   │   └── HotkeyRecorderView.swift    # Запись кастомного хоткея
-│   └── Console/
-│       └── ConsoleView.swift      # Консоль отладки (фильтры, JSON, авто-скролл)
-├── Utilities/
-│   └── Constants.swift            # OAuth client IDs, URLs
-└── Resources/
-    ├── en.lproj/Localizable.strings
-    └── ru.lproj/Localizable.strings
+│   ├── Providers/    # AIProvider protocol + Qwen/Anthropic/OpenAI/Gemini
+│   ├── Auth/         # OAuthService, KeychainService, LocalCallbackServer
+│   ├── AppLogger     # Singleton логгер
+│   ├── ModelService  # Загрузка моделей с API
+│   └── TranslationService # Оркестратор перевода
+├── ViewModels/       # TranslatorViewModel, SettingsViewModel
+├── Views/            # TranslatorView, SettingsView, Console, Components
+└── Resources/        # Info.plist, en/ru Localizable.strings, Entitlements
 ```
 
 ## Ключевые решения
 
-| Решение | Почему |
-|---------|--------|
-| **Токены в файлах** | `~/.aitranslator/credentials/` — без Keychain-промптов при каждом запуске |
-| **Qwen refresh** | `x-www-form-urlencoded` (не JSON!) |
-| **Claude refresh** | JSON body, `anthropic-beta: oauth-2025-04-20` header |
-| **Хоткей** | Carbon `RegisterEventHotKey` + AXUIElement для захвата выделенного текста |
-| **Модели** | `/v1/models` API (Claude) + hardcoded fallback (все провайдеры) |
-| **Gemini endpoint** | `generativelanguage.googleapis.com/v1beta/openai` — OpenAI-совместимый формат |
-| **Code signing** | Team ID `GM23JF485V` — для стабильных Accessibility permissions |
-| **xcodegen** | `project.yml` → автогенерация `.xcodeproj` при добавлении новых файлов |
+| Решение                  | Почему                                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| **Токены в файлах**      | `~/.aitranslator/credentials/` — без Keychain-промптов                              |
+| **Self-signed cert**     | `AITranslator Dev` (CN=AITranslator Dev, O=JarvisMaxDev) — стабильный Accessibility |
+| **TAP_GITHUB_TOKEN**     | PAT для cross-repo push в homebrew-tap                                              |
+| **xcodegen**             | `project.yml` → автогенерация `.xcodeproj`                                          |
+| **Conventional commits** | `fix:/feat:/ci:` → автоматический семантик-релиз                                    |
 
 ## Как продолжить разработку
 
 1. **Сборка**: `xcodegen generate && xcodebuild -scheme AITranslator build`
-2. **Добавление провайдера**: создать `XxxProvider.swift` (протокол `AIProvider`), добавить case в `ProviderType`, зарегистрировать в `TranslationService.setupProvider`
-3. **Локализация**: добавить строки в оба `Localizable.strings`
-4. **Новые файлы**: после создания → `xcodegen generate` для обновления проекта
-5. **Отладка**: консоль ⌘L показывает все API запросы/ответы в JSON
+2. **Релиз**: просто `git push origin main` с conventional commit
+3. **Добавление провайдера**: `XxxProvider.swift` (протокол `AIProvider`) → добавить в `ProviderType` → `TranslationService`
+4. **Локализация**: оба `Localizable.strings`
+5. **Отладка**: консоль ⌘L
