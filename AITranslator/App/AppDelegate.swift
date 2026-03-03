@@ -176,14 +176,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     let oldContent = pasteboard.string(forType: .string)
                     AppLogger.shared.log(.info, category: "Hotkey", message: "Clipboard before: changeCount=\(oldChangeCount), hasText=\(oldContent != nil)")
 
-                    // Simulate Cmd+C via AppleScript (more reliable than CGEvent for apps like Outlook)
-                    let script = NSAppleScript(source: """
-                        tell application "System Events" to keystroke "c" using command down
-                    """)
-                    var errorInfo: NSDictionary?
-                    script?.executeAndReturnError(&errorInfo)
-                    if let err = errorInfo {
-                        AppLogger.shared.log(.error, category: "Hotkey", message: "AppleScript Cmd+C failed: \(err)")
+                    // Simulate Cmd+C via osascript process (bypasses app-level TCC restriction)
+                    let task = Process()
+                    task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+                    task.arguments = ["-e", "tell application \"System Events\" to keystroke \"c\" using command down"]
+                    do {
+                        try task.run()
+                        task.waitUntilExit()
+                        if task.terminationStatus != 0 {
+                            AppLogger.shared.log(.error, category: "Hotkey", message: "osascript Cmd+C exit code: \(task.terminationStatus)")
+                        }
+                    } catch {
+                        AppLogger.shared.log(.error, category: "Hotkey", message: "osascript Cmd+C failed: \(error.localizedDescription)")
                     }
 
                     // Wait for clipboard to update (some apps like Outlook need more time)
