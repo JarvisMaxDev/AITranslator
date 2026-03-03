@@ -56,7 +56,7 @@ struct TranslationPanel: View {
                         .lineSpacing(3)
                         .scrollContentBackground(.hidden)
                         .padding(.horizontal, 16)
-                        .padding(.top, -4)
+                        .padding(.top, 0)
                 } else {
                     if isLoading && text.isEmpty {
                         // Show spinner only when waiting for first chunk
@@ -90,7 +90,7 @@ struct TranslationPanel: View {
                                 }
                             }
                             .padding(.horizontal, 20)
-                            .padding(.top, 8)
+                            .padding(.top, 7)
                         }
                     }
                 }
