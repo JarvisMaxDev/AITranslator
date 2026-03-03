@@ -183,8 +183,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     keyDown?.post(tap: .cghidEventTap)
                     keyUp?.post(tap: .cghidEventTap)
 
-                    // Wait for clipboard to update
-                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.15) {
+                    // Wait for clipboard to update (some apps like Outlook need more time)
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.35) {
                         let newContent = pasteboard.string(forType: .string) ?? ""
                         let didChange = pasteboard.changeCount != oldChangeCount
 
