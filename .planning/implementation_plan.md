@@ -25,6 +25,11 @@
 | Понятные ошибки          | Локализованные сообщения                                    |
 | Локализация RU/EN        | По языку системы + переключатель в настройках               |
 | Консоль отладки          | AppLogger + ConsoleView (⌘L), JSON payload/response         |
+| **Стриминг перевода**    | SSE, токен за токеном, анимированный курсор                 |
+| **OCR**                  | Cmd+V картинки или загрузка файла → Vision → перевод        |
+| **Размер шрифта**        | 10-24pt, Cmd+/Cmd-, сохраняется в UserDefaults              |
+| **Outlook Cmd+C**        | CGEvent combinedSessionState + AppleScript fallback         |
+| **Undo/Redo**            | Cmd+Z / Cmd+Shift+Z для текстовых изменений                 |
 
 ### ✅ CI/CD (полностью автоматизировано)
 
@@ -40,9 +45,7 @@
 
 ### 📋 Следующие задачи
 
-- [ ] Стриминг перевода (токен за токеном)
 - [ ] Перевод документов
-- [ ] OCR (скриншот → текст → перевод)
 - [ ] TTS (озвучка перевода)
 - [ ] Автозагрузка при входе в систему
 - [ ] Кастомный OpenAI-совместимый эндпоинт (Ollama, LM Studio, OpenRouter)
@@ -73,6 +76,7 @@ AITranslator/
 │   ├── Auth/         # OAuthService, KeychainService, LocalCallbackServer
 │   ├── AppLogger     # Singleton логгер
 │   ├── ModelService  # Загрузка моделей с API
+│   ├── OCRService    # Vision framework OCR
 │   └── TranslationService # Оркестратор перевода
 ├── ViewModels/       # TranslatorViewModel, SettingsViewModel
 ├── Views/            # TranslatorView, SettingsView, Console, Components

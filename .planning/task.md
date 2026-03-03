@@ -40,3 +40,27 @@
 - [x] Авто-генерация changelog (feat/fix/perf/refactor)
 - [x] Авто-обновление Homebrew Cask (git clone + push, TAP_GITHUB_TOKEN)
 - [x] Git user настроен как JarvisMaxDev (noreply email)
+
+## Фичи (v1.5.0 – v1.8.0)
+
+- [x] Стриминг перевода (SSE, токен за токеном)
+- [x] OCR — картинка (Cmd+V из буфера или загрузка файла) → Vision → перевод
+- [x] Undo/Redo (Cmd+Z / Cmd+Shift+Z)
+- [x] Иконка приложения
+
+## Фичи и фиксы (v1.8.0 – v1.9.0)
+
+- [x] Outlook Cmd+C — CGEvent combinedSessionState + AppleScript fallback
+- [x] Краш консоли (isReleasedWhenClosed + isVisible)
+- [x] Краш Carbon callback (Unmanaged вместо UnsafeMutablePointer)
+- [x] Дебаунс хоткея (500мс)
+- [x] Настройка размера шрифта (10-24pt, Cmd+/Cmd-, UserDefaults)
+- [x] CI: защита от дублирования tags при force-push
+
+## Следующие задачи
+
+- [ ] Перевод документов
+- [ ] TTS (озвучка перевода)
+- [ ] Автозагрузка при входе в систему
+- [ ] Кастомный OpenAI-совместимый эндпоинт (Ollama, LM Studio, OpenRouter)
+- [ ] История переводов

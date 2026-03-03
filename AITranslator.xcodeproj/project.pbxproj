@@ -28,6 +28,7 @@
 		8AEE7918902A0557D5687612 /* OAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 482A50FD172606D842B28BA2 /* OAuthService.swift */; };
 		95C2E596FF92018DE48AD6B7 /* ConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770CB59405077527397A4135 /* ConsoleView.swift */; };
 		97F9995E47BF6DA250F20B7D /* TranslatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09CAAD8D8EE1A6A5091416CA /* TranslatorView.swift */; };
+		A15872F64324AF1D789E39E4 /* DocumentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6394463DBF3AE7F415968121 /* DocumentService.swift */; };
 		A5588EDDA4894E370A5C1B71 /* PopupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC7456FD22A0EA0D24EE1FF /* PopupViewModel.swift */; };
 		A9E45AB4FE205AA4E5F033D3 /* ModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B555EE2B08A08539440FAB28 /* ModelService.swift */; };
 		B0225AF9796940D1936FF676 /* AnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB91F217857DC697004B034 /* AnthropicProvider.swift */; };
@@ -57,6 +58,7 @@
 		4DBD829436296526AE36F9A0 /* GeminiProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiProvider.swift; sourceTree = "<group>"; };
 		4FBE33C2478CB7650365239A /* QwenProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QwenProvider.swift; sourceTree = "<group>"; };
 		627D26851CCFC69E3D8C1075 /* TranslationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPanel.swift; sourceTree = "<group>"; };
+		6394463DBF3AE7F415968121 /* DocumentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentService.swift; sourceTree = "<group>"; };
 		73016844C79CDDDF58BD8B3F /* TranslatorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslatorViewModel.swift; sourceTree = "<group>"; };
 		770CB59405077527397A4135 /* ConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleView.swift; sourceTree = "<group>"; };
 		79DEAC48A94A23215D8AD940 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
@@ -192,6 +194,7 @@
 			isa = PBXGroup;
 			children = (
 				B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */,
+				6394463DBF3AE7F415968121 /* DocumentService.swift */,
 				8A3B01A08A419F5D2D9A2B59 /* KeychainService.swift */,
 				B555EE2B08A08539440FAB28 /* ModelService.swift */,
 				4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */,
@@ -327,6 +330,7 @@
 				6607FAD790BE1009A69922AF /* AppLogger.swift in Sources */,
 				95C2E596FF92018DE48AD6B7 /* ConsoleView.swift in Sources */,
 				68C35F5F3A52FF8F29CAA73D /* Constants.swift in Sources */,
+				A15872F64324AF1D789E39E4 /* DocumentService.swift in Sources */,
 				714E180787C93D06EF1A4A54 /* GeminiProvider.swift in Sources */,
 				3848751BC558022596D4F3AB /* HotkeyRecorderView.swift in Sources */,
 				60C7C3DF9F242601F977D68F /* KeychainService.swift in Sources */,

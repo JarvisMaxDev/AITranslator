@@ -96,3 +96,12 @@
 "ocr.no_text" = "No text found in the image";
 "ocr.select_image" = "Select an image for text recognition";
 "ocr.load_image" = "Load image for OCR";
+
+/* Documents */
+"document.load" = "Select a document to translate";
+"document.export" = "Export";
+"document.cancel" = "Cancel translation";
+"document.close" = "Close document mode";
+"document.too_large" = "Document too large (%d characters). Maximum is 500,000.";
+"document.unsupported_format" = "Unsupported document format. Use .txt or .pdf.";
+"document.no_text" = "No extractable text found in the document";

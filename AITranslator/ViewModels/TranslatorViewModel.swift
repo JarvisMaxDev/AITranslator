@@ -16,10 +16,19 @@ final class TranslatorViewModel: ObservableObject {
     /// Detected language when sourceLanguage is Auto Detect
     @Published var detectedLanguage: Language?
 
+    // Document translation mode
+    @Published var isDocumentMode: Bool = false
+    @Published var documentProgress: Double = 0
+    @Published var documentFileName: String?
+
     private let translationService = TranslationService()
     private let settingsViewModel: SettingsViewModel
     private var cancellables = Set<AnyCancellable>()
     private let recognizer = NLLanguageRecognizer()
+    private let documentService = DocumentService()
+    private var documentTask: Task<Void, Never>?
+    private var documentType: DocumentService.DocumentType?
+    private var documentURL: URL?
 
     // Undo/redo stacks for source text
     private var undoStack: [(source: String, translated: String)] = []
@@ -251,5 +260,136 @@ final class TranslatorViewModel: ObservableObject {
            let lang = LanguageList.find(byCode: code) {
             targetLanguage = lang
         }
+    }
+
+    // MARK: - Document Translation
+
+    /// Load and translate a document file
+    func processDocument(url: URL) {
+        documentTask?.cancel()
+        documentTask = Task {
+            saveState()
+
+            do {
+                let (text, type) = try documentService.loadDocument(from: url)
+                self.documentType = type
+                self.documentURL = url
+                self.documentFileName = url.lastPathComponent
+                self.isDocumentMode = true
+                self.sourceText = text
+                self.documentProgress = 0
+                self.error = nil
+
+                AppLogger.info("Document",
+                    "Loaded \(type) \(url.lastPathComponent): \(text.count) chars")
+
+                // Chunk and translate
+                let chunks = documentService.chunkText(text)
+                guard !chunks.isEmpty else { return }
+
+                AppLogger.info("Document",
+                    "Split into \(chunks.count) chunks, translating...")
+
+                self.isTranslating = true
+                self.translatedText = ""
+                var fullTranslation = ""
+
+                guard let selectedId = settingsViewModel.selectedProviderId else {
+                    self.error = NSLocalizedString("error.no_provider", comment: "No provider selected")
+                    self.isTranslating = false
+                    return
+                }
+
+                let effectiveSource = (sourceLanguage.code == "auto")
+                    ? (detectLanguage(from: text) ?? sourceLanguage)
+                    : sourceLanguage
+
+                if sourceLanguage.code == "auto", let detected = detectLanguage(from: text) {
+                    detectedLanguage = detected
+                }
+
+                for (index, chunk) in chunks.enumerated() {
+                    // Check cancellation
+                    if Task.isCancelled {
+                        AppLogger.info("Document", "Translation cancelled at chunk \(index + 1)/\(chunks.count)")
+                        break
+                    }
+
+                    let stream = translationService.translateStream(
+                        text: chunk,
+                        from: effectiveSource,
+                        to: targetLanguage,
+                        using: selectedId
+                    )
+
+                    var chunkResult = ""
+                    do {
+                        for try await token in stream {
+                            if Task.isCancelled { break }
+                            chunkResult += token
+                            // Show progressive result
+                            translatedText = fullTranslation + (fullTranslation.isEmpty ? "" : "\n\n") + chunkResult
+                            await Task.yield()
+                        }
+                    } catch {
+                        AppLogger.error("Document",
+                            "Chunk \(index + 1)/\(chunks.count) failed",
+                            details: error.localizedDescription)
+                        self.error = error.localizedDescription
+                        break
+                    }
+
+                    fullTranslation += (fullTranslation.isEmpty ? "" : "\n\n") + chunkResult
+                    documentProgress = Double(index + 1) / Double(chunks.count)
+                }
+
+                translatedText = fullTranslation
+                isTranslating = false
+                translationService.isTranslating = false
+
+                AppLogger.success("Document",
+                    "Translation complete",
+                    details: "\(fullTranslation.count) chars")
+
+            } catch {
+                AppLogger.error("Document", "Load failed", details: error.localizedDescription)
+                self.error = error.localizedDescription
+                self.isDocumentMode = false
+            }
+        }
+    }
+
+    /// Cancel document translation in progress
+    func cancelDocument() {
+        documentTask?.cancel()
+        documentTask = nil
+        isTranslating = false
+        translationService.isTranslating = false
+        AppLogger.info("Document", "Translation cancelled by user")
+    }
+
+    /// Export translated document to file
+    func exportDocument() {
+        guard let type = documentType, let url = documentURL else { return }
+        do {
+            let savedURL = try documentService.exportDocument(
+                translatedText: translatedText,
+                originalURL: url,
+                type: type
+            )
+            AppLogger.success("Document", "Exported to \(savedURL.lastPathComponent)")
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Exit document mode
+    func exitDocumentMode() {
+        cancelDocument()
+        isDocumentMode = false
+        documentFileName = nil
+        documentProgress = 0
+        documentType = nil
+        documentURL = nil
     }
 }
