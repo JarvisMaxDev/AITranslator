@@ -17,10 +17,18 @@ final class ModelService {
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200,
-                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            guard let httpResponse = response as? HTTPURLResponse else { return [] }
+
+            guard httpResponse.statusCode == 200 else {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                AppLogger.error("Models", "Anthropic API returned \(httpResponse.statusCode)", details: body)
+                return []
+            }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let models = json["data"] as? [[String: Any]] else {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                AppLogger.error("Models", "Anthropic models: unexpected response format", details: body)
                 return []
             }
 

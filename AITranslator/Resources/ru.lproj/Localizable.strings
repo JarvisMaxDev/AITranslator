@@ -85,3 +85,14 @@
 "accessibility.message" = "AI Translator нужен доступ к Accessibility для захвата выделенного текста по глобальному хоткею.\n\nДобавьте приложение в Системные настройки > Конфиденциальность > Универсальный доступ.";
 "accessibility.open_settings" = "Открыть настройки";
 "accessibility.later" = "Позже";
+
+/* Permissions */
+"settings.permissions" = "Разрешения";
+"settings.perm.accessibility_desc" = "Для захвата выделенного текста";
+"settings.perm.automation_desc" = "Для копирования текста из некоторых приложений";
+"settings.perm.open_settings" = "Открыть настройки";
+
+/* OCR */
+"ocr.no_text" = "Текст на изображении не найден";
+"ocr.select_image" = "Выберите изображение для распознавания текста";
+"ocr.load_image" = "Загрузить изображение для OCR";

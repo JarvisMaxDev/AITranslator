@@ -95,7 +95,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openConsole() {
         NSApp.activate(ignoringOtherApps: true)
-        if let window = consoleWindow {
+        if let window = consoleWindow, window.isVisible {
             window.makeKeyAndOrderFront(nil)
             return
         }
@@ -105,6 +105,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
         window.title = NSLocalizedString("menu.console", comment: "Console")
         window.contentView = NSHostingView(rootView: ConsoleView())
         window.center()
@@ -147,14 +148,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                       eventKind: UInt32(kEventHotKeyPressed))
 
-        let handlerPtr = UnsafeMutablePointer<AppDelegate>.allocate(capacity: 1)
-        handlerPtr.initialize(to: self)
+        // Use Unmanaged to safely pass self to the Carbon callback
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
 
         InstallEventHandler(
             GetApplicationEventTarget(),
             { (_, event, userData) -> OSStatus in
                 guard let userData = userData else { return OSStatus(eventNotHandledErr) }
-                let delegate = userData.assumingMemoryBound(to: AppDelegate.self).pointee
+
+                // Debounce: ignore repeated presses within 500ms
+                struct Debounce { static var lastFire: Date = .distantPast }
+                let now = Date()
+                guard now.timeIntervalSince(Debounce.lastFire) > 0.5 else {
+                    AppLogger.shared.log(.info, category: "Hotkey", message: "Debounced (too fast)")
+                    return noErr
+                }
+                Debounce.lastFire = now
+
+                let delegate = Unmanaged<AppDelegate>.fromOpaque(userData).takeUnretainedValue()
                 let selectedText = AppDelegate.readSelectedText()
 
                 if let text = selectedText, !text.isEmpty {
@@ -166,57 +177,81 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         delegate.handleHotkey(text: text)
                     }
                 } else {
-                    // AX failed (Terminal, etc.) — simulate Cmd+C to copy selection
+                    // AX failed — simulate Cmd+C
                     let frontApp = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
-                    AppLogger.shared.log(.info, category: "Hotkey", message: "AX returned nil, frontmost app: \(frontApp), simulating Cmd+C")
+                    AppLogger.shared.log(.info, category: "Hotkey", message: "AX returned nil, frontmost=\(frontApp), simulating Cmd+C")
 
                     // Save current clipboard
                     let pasteboard = NSPasteboard.general
                     let oldChangeCount = pasteboard.changeCount
                     let oldContent = pasteboard.string(forType: .string)
-                    AppLogger.shared.log(.info, category: "Hotkey", message: "Clipboard before: changeCount=\(oldChangeCount), hasText=\(oldContent != nil)")
 
-                    // Simulate Cmd+C via AppleScript (more reliable than CGEvent for apps like Outlook)
-                    let script = NSAppleScript(source: """
-                        tell application "System Events" to keystroke "c" using command down
-                    """)
-                    var errorInfo: NSDictionary?
-                    script?.executeAndReturnError(&errorInfo)
-                    if let err = errorInfo {
-                        AppLogger.shared.log(.error, category: "Hotkey", message: "AppleScript Cmd+C failed: \(err)")
+                    // Step 1: Clear modifier flags so target app sees clean state
+                    if let src = CGEventSource(stateID: .combinedSessionState) {
+                        if let flagsEvent = CGEvent(source: src) {
+                            flagsEvent.type = .flagsChanged
+                            flagsEvent.flags = []
+                            flagsEvent.post(tap: .cghidEventTap)
+                        }
                     }
 
-                    // Wait for clipboard to update (some apps like Outlook need more time)
-                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.35) {
-                        let newContent = pasteboard.string(forType: .string) ?? ""
-                        let didChange = pasteboard.changeCount != oldChangeCount
-                        let frontAppAfter = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
-                        AppLogger.shared.log(.info, category: "Hotkey", message: "After 350ms: frontmost=\(frontAppAfter), changeCount=\(pasteboard.changeCount), didChange=\(didChange), textLen=\(newContent.count)")
+                    // Step 2: After delay, send Cmd+C via CGEvent with combinedSessionState
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        if let src = CGEventSource(stateID: .combinedSessionState) {
+                            let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: true)
+                            let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: false)
+                            keyDown?.flags = .maskCommand
+                            keyUp?.flags = .maskCommand
+                            keyDown?.post(tap: .cghidEventTap)
+                            keyUp?.post(tap: .cghidEventTap)
+                        }
 
-                        let text: String
-                        if didChange && !newContent.isEmpty {
-                            text = newContent
-                            AppLogger.shared.log(.info, category: "Hotkey", message: "Cmd+C captured '\(text.prefix(30))...'")
+                        // Step 3: Check clipboard after delay with retry
+                        func checkAndRetry(attempt: Int, maxAttempts: Int) {
+                            DispatchQueue.global().asyncAfter(deadline: .now() + 0.4) {
+                                let newContent = pasteboard.string(forType: .string) ?? ""
+                                let didChange = pasteboard.changeCount != oldChangeCount
 
-                            // Restore original clipboard
-                            if let old = oldContent {
-                                pasteboard.clearContents()
-                                pasteboard.setString(old, forType: .string)
+                                if didChange && !newContent.isEmpty {
+                                    if let old = oldContent {
+                                        pasteboard.clearContents()
+                                        pasteboard.setString(old, forType: .string)
+                                    }
+                                    DispatchQueue.main.async {
+                                        AppLogger.shared.log(.info, category: "Hotkey", message: "Cmd+C captured on attempt \(attempt): '\(newContent.prefix(30))...'")
+                                        delegate.handleHotkey(text: newContent)
+                                    }
+                                } else if attempt < maxAttempts {
+                                    // Fallback: targeted AppleScript for frontmost process
+                                    DispatchQueue.main.async {
+                                        AppLogger.shared.log(.info, category: "Hotkey", message: "Cmd+C attempt \(attempt)/\(maxAttempts): no change, trying AppleScript for '\(frontApp)'")
+                                        let task = Process()
+                                        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+                                        task.arguments = ["-e", """
+                                            tell application "System Events"
+                                                tell process "\(frontApp)"
+                                                    keystroke "c" using command down
+                                                end tell
+                                            end tell
+                                            """]
+                                        do { try task.run() } catch { }
+                                        checkAndRetry(attempt: attempt + 1, maxAttempts: maxAttempts)
+                                    }
+                                } else {
+                                    DispatchQueue.main.async {
+                                        AppLogger.shared.log(.info, category: "Hotkey", message: "No selection after \(maxAttempts) attempts")
+                                        delegate.handleHotkey(text: "")
+                                    }
+                                }
                             }
-                        } else {
-                            // Nothing was selected — open empty
-                            text = ""
-                            AppLogger.shared.log(.info, category: "Hotkey", message: "No selection found")
                         }
 
-                        DispatchQueue.main.async {
-                            delegate.handleHotkey(text: text)
-                        }
+                        checkAndRetry(attempt: 1, maxAttempts: 3)
                     }
                 }
                 return noErr
             },
-            1, &eventType, handlerPtr, nil
+            1, &eventType, selfPtr, nil
         )
 
         // Read from UserDefaults or use default ⌘⇧C

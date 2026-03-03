@@ -340,36 +340,30 @@ struct SettingsView: View {
 
             // Info and Actions
             VStack(alignment: .leading, spacing: 8) {
-                // Top row: Title and Badge
+                // Top row: Title and connection status
                 HStack(spacing: 8) {
                     Text(config.name)
                         .font(.headline)
                         .lineLimit(1)
                     
                     Spacer()
-                }
 
-                // Bottom row: Status, Picker, and Actions
-                HStack(alignment: .center, spacing: 12) {
-                    // Status
-                    HStack(spacing: 6) {
+                    // Connection status (moved here from bottom row)
+                    HStack(spacing: 5) {
                         Circle()
                             .fill(config.isAuthenticated ? .green : .orange)
-                            .frame(width: 8, height: 8)
+                            .frame(width: 7, height: 7)
                         
                         Text(config.isAuthenticated
                              ? NSLocalizedString("settings.connected", comment: "Connected")
                              : NSLocalizedString("settings.not_connected", comment: "Not connected"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .layoutPriority(1)
-                        
-                        Text("•")
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                     }
-                        
+                }
+
+                // Bottom row: Picker and Actions
+                HStack(alignment: .center, spacing: 12) {
                     // Model Picker
                     Picker("", selection: Binding(
                         get: { config.model },

@@ -85,3 +85,14 @@
 "accessibility.message" = "AI Translator needs Accessibility access to capture selected text with the global hotkey.\n\nPlease add it in System Settings > Privacy & Security > Accessibility.";
 "accessibility.open_settings" = "Open Settings";
 "accessibility.later" = "Later";
+
+/* Permissions */
+"settings.permissions" = "Permissions";
+"settings.perm.accessibility_desc" = "Required for capturing selected text";
+"settings.perm.automation_desc" = "Required for copying text from some apps";
+"settings.perm.open_settings" = "Open Settings";
+
+/* OCR */
+"ocr.no_text" = "No text found in the image";
+"ocr.select_image" = "Select an image for text recognition";
+"ocr.load_image" = "Load image for OCR";
