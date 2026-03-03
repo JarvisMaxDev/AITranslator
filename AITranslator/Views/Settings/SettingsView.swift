@@ -149,6 +149,9 @@ struct SettingsView: View {
 
     // MARK: - General Tab
 
+    @State private var accessibilityGranted = AXIsProcessTrusted()
+    @State private var automationGranted = false
+
     private var generalTab: some View {
         VStack {
             GroupBox {
@@ -186,9 +189,86 @@ struct SettingsView: View {
                 }
                 .padding(24)
             }
-            .padding(32)
+            .padding(.horizontal, 32)
+            .padding(.top, 32)
+
+            // Permissions section
+            GroupBox {
+                VStack(spacing: 12) {
+                    Text(NSLocalizedString("settings.permissions", comment: "Permissions"))
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    permissionRow(
+                        name: "Accessibility",
+                        description: NSLocalizedString("settings.perm.accessibility_desc", comment: "Required for capturing selected text"),
+                        granted: accessibilityGranted,
+                        action: {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    )
+
+                    Divider()
+
+                    permissionRow(
+                        name: "Automation",
+                        description: NSLocalizedString("settings.perm.automation_desc", comment: "Required for copying text from some apps"),
+                        granted: automationGranted,
+                        action: {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    )
+                }
+                .padding(16)
+            }
+            .padding(.horizontal, 32)
+            .padding(.bottom, 32)
+            .onAppear { refreshPermissions() }
+            .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
+                refreshPermissions()
+            }
         }
         .frame(maxHeight: .infinity)
+    }
+
+    private func permissionRow(name: String, description: String, granted: Bool, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: granted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundStyle(granted ? .green : .red)
+                .font(.title3)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.body.weight(.medium))
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if !granted {
+                Button(NSLocalizedString("settings.perm.open_settings", comment: "Open Settings")) {
+                    action()
+                }
+                .controlSize(.small)
+            }
+        }
+    }
+
+    private func refreshPermissions() {
+        accessibilityGranted = AXIsProcessTrusted()
+        // Check Automation by trying a harmless AppleScript
+        let script = NSAppleScript(source: """
+            tell application "System Events" to return name of first process
+        """)
+        var errorInfo: NSDictionary?
+        script?.executeAndReturnError(&errorInfo)
+        automationGranted = (errorInfo == nil)
     }
 
     // MARK: - Providers Tab
