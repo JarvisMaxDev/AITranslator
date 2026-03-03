@@ -146,16 +146,24 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create git tag
+        id: create_tag
         if: steps.version.outputs.should_release == 'true'
         run: |
           TAG="${{ steps.version.outputs.tag }}"
+          # Check if tag already exists on remote
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
+            echo "⚠️ Tag $TAG already exists on remote — skipping release"
+            echo "tag_created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git config user.name "JarvisMaxDev"
           git config user.email "jarvis@aitranslator.dev"
           git tag -a "$TAG" -m "Release $TAG"
           git push origin "$TAG"
+          echo "tag_created=true" >> "$GITHUB_OUTPUT"
 
       - name: Import code signing certificate
-        if: steps.version.outputs.should_release == 'true'
+        if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
         env:
           CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
@@ -171,15 +179,15 @@ jobs:
           security find-identity -v build.keychain
 
       - name: Install XcodeGen
-        if: steps.version.outputs.should_release == 'true'
+        if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
         run: brew install xcodegen
 
       - name: Generate Xcode Project
-        if: steps.version.outputs.should_release == 'true'
+        if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
         run: xcodegen generate
 
       - name: Build Release
-        if: steps.version.outputs.should_release == 'true'
+        if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
         run: |
           xcodebuild -project AITranslator.xcodeproj \
             -scheme AITranslator \
@@ -194,7 +202,7 @@ jobs:
             SYMROOT="$(pwd)/build"
 
       - name: Verify version in app
-        if: steps.version.outputs.should_release == 'true'
+        if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
         run: |
           VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" \
             "build/Release/AI Translator.app/Contents/Info.plist")
@@ -203,7 +211,7 @@ jobs:
           echo "✅ App version: $VERSION (build $BUILD)"
 
       - name: Create DMG
-        if: steps.version.outputs.should_release == 'true'
+        if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
         run: |
           cd build/Release
           mkdir -p dmg_staging
@@ -218,7 +226,7 @@ jobs:
           shasum -a 256 AITranslator.dmg
 
       - name: Create GitHub Release
-        if: steps.version.outputs.should_release == 'true'
+        if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
@@ -229,7 +237,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Homebrew Cask
-        if: steps.version.outputs.should_release == 'true'
+        if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
         env:
           TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
         run: |
