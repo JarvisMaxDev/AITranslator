@@ -16,5 +16,6 @@ enum Constants {
         static let targetLanguageCode = "targetLanguageCode"
         static let hotkeyKeyCode = "hotkeyKeyCode"
         static let hotkeyModifiers = "hotkeyModifiers"
+        static let fontSize = "fontSize"
     }
 }

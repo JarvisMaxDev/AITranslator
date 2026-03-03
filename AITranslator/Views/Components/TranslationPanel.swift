@@ -8,6 +8,7 @@ struct TranslationPanel: View {
     let placeholder: String
     let isSource: Bool
     let isLoading: Bool
+    var fontSize: CGFloat = 14
     var detectedLanguage: String? = nil
     var onBeforeTextChange: (() -> Void)? = nil
     var onImagePasted: ((NSImage) -> Void)? = nil
@@ -44,7 +45,7 @@ struct TranslationPanel: View {
             ZStack(alignment: .topLeading) {
                 if text.isEmpty && !isLoading {
                     Text(placeholder)
-                        .font(.body)
+                        .font(.system(size: fontSize))
                         .foregroundStyle(.quaternary)
                         .padding(.leading, 20)
                         .padding(.top, 8)
@@ -52,7 +53,7 @@ struct TranslationPanel: View {
 
                 if isSource {
                     TextEditor(text: $text)
-                        .font(.body)
+                        .font(.system(size: fontSize))
                         .lineSpacing(3)
                         .scrollContentBackground(.hidden)
                         .padding(.horizontal, 16)
@@ -65,7 +66,7 @@ struct TranslationPanel: View {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(text)
-                                    .font(.body)
+                                    .font(.system(size: fontSize))
                                     .lineSpacing(3)
                                     .textSelection(.enabled)
                                     .frame(maxWidth: .infinity, alignment: .leading)

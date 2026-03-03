@@ -6,6 +6,7 @@ struct TranslatorView: View {
     @EnvironmentObject var settingsViewModel: SettingsViewModel
     @Environment(\.openWindow) private var openWindow
 
+    @AppStorage(Constants.UserDefaultsKeys.fontSize) private var fontSize: Double = 14
     @State private var swapRotation: Double = 0
 
     var body: some View {
@@ -67,6 +68,7 @@ struct TranslatorView: View {
                     placeholder: "",
                     isSource: true,
                     isLoading: viewModel.isProcessingOCR,
+                    fontSize: CGFloat(fontSize),
                     detectedLanguage: viewModel.detectedLanguage?.name,
                     onBeforeTextChange: { viewModel.saveState() },
                     onImagePasted: { image in
@@ -81,7 +83,8 @@ struct TranslatorView: View {
                     language: $viewModel.targetLanguage,
                     placeholder: "",
                     isSource: false,
-                    isLoading: viewModel.isTranslating
+                    isLoading: viewModel.isTranslating,
+                    fontSize: CGFloat(fontSize)
                 )
                 .frame(minWidth: 250, maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -114,6 +117,17 @@ struct TranslatorView: View {
                 .keyboardShortcut(",", modifiers: .command)
             }
         }
+        // Font size keyboard shortcuts
+        .background(
+            Group {
+                Button("") { fontSize = min(fontSize + 1, 24) }
+                    .keyboardShortcut("+", modifiers: .command)
+                    .hidden()
+                Button("") { fontSize = max(fontSize - 1, 10) }
+                    .keyboardShortcut("-", modifiers: .command)
+                    .hidden()
+            }
+        )
     }
 
     // MARK: - Status Bar
@@ -167,6 +181,31 @@ struct TranslatorView: View {
             }
 
             Spacer()
+
+            // Font size controls
+            HStack(spacing: 4) {
+                Button(action: { fontSize = max(fontSize - 1, 10) }) {
+                    Image(systemName: "textformat.size.smaller")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(NSLocalizedString("action.font_smaller", comment: "Decrease font size"))
+
+                Text("\(Int(fontSize))")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+                    .frame(minWidth: 18)
+
+                Button(action: { fontSize = min(fontSize + 1, 24) }) {
+                    Image(systemName: "textformat.size.larger")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(NSLocalizedString("action.font_larger", comment: "Increase font size"))
+            }
 
             // Character count
             HStack(spacing: 4) {
