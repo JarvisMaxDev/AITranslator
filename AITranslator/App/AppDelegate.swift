@@ -167,12 +167,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 } else {
                     // AX failed (Terminal, etc.) — simulate Cmd+C to copy selection
-                    AppLogger.shared.log(.info, category: "Hotkey", message: "AX returned nil, simulating Cmd+C")
+                    let frontApp = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
+                    AppLogger.shared.log(.info, category: "Hotkey", message: "AX returned nil, frontmost app: \(frontApp), simulating Cmd+C")
 
                     // Save current clipboard
                     let pasteboard = NSPasteboard.general
                     let oldChangeCount = pasteboard.changeCount
                     let oldContent = pasteboard.string(forType: .string)
+                    AppLogger.shared.log(.info, category: "Hotkey", message: "Clipboard before: changeCount=\(oldChangeCount), hasText=\(oldContent != nil)")
 
                     // Simulate Cmd+C
                     let src = CGEventSource(stateID: .hidSystemState)
@@ -187,6 +189,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     DispatchQueue.global().asyncAfter(deadline: .now() + 0.35) {
                         let newContent = pasteboard.string(forType: .string) ?? ""
                         let didChange = pasteboard.changeCount != oldChangeCount
+                        let frontAppAfter = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
+                        AppLogger.shared.log(.info, category: "Hotkey", message: "After 350ms: frontmost=\(frontAppAfter), changeCount=\(pasteboard.changeCount), didChange=\(didChange), textLen=\(newContent.count)")
 
                         let text: String
                         if didChange && !newContent.isEmpty {
