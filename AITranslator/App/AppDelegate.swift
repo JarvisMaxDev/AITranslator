@@ -182,16 +182,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     task.arguments = ["-e", "tell application \"System Events\" to keystroke \"c\" using command down"]
                     do {
                         try task.run()
-                        task.waitUntilExit()
-                        if task.terminationStatus != 0 {
-                            AppLogger.shared.log(.error, category: "Hotkey", message: "osascript Cmd+C exit code: \(task.terminationStatus)")
-                        }
+                        // Don't block — let osascript run asynchronously
                     } catch {
                         AppLogger.shared.log(.error, category: "Hotkey", message: "osascript Cmd+C failed: \(error.localizedDescription)")
                     }
 
-                    // Wait for clipboard to update (some apps like Outlook need more time)
-                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.35) {
+                    // Wait for osascript + app to process the keystroke
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
                         let newContent = pasteboard.string(forType: .string) ?? ""
                         let didChange = pasteboard.changeCount != oldChangeCount
                         let frontAppAfter = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
