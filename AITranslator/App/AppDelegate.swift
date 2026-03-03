@@ -176,14 +176,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     let oldContent = pasteboard.string(forType: .string)
                     AppLogger.shared.log(.info, category: "Hotkey", message: "Clipboard before: changeCount=\(oldChangeCount), hasText=\(oldContent != nil)")
 
-                    // Simulate Cmd+C
-                    let src = CGEventSource(stateID: .hidSystemState)
-                    let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: true) // 'c' key
-                    let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: false)
-                    keyDown?.flags = .maskCommand
-                    keyUp?.flags = .maskCommand
-                    keyDown?.post(tap: .cghidEventTap)
-                    keyUp?.post(tap: .cghidEventTap)
+                    // Simulate Cmd+C via AppleScript (more reliable than CGEvent for apps like Outlook)
+                    let script = NSAppleScript(source: """
+                        tell application "System Events" to keystroke "c" using command down
+                    """)
+                    var errorInfo: NSDictionary?
+                    script?.executeAndReturnError(&errorInfo)
+                    if let err = errorInfo {
+                        AppLogger.shared.log(.error, category: "Hotkey", message: "AppleScript Cmd+C failed: \(err)")
+                    }
 
                     // Wait for clipboard to update (some apps like Outlook need more time)
                     DispatchQueue.global().asyncAfter(deadline: .now() + 0.35) {
