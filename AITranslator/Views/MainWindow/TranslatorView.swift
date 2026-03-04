@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Main translator view with two panels side by side
 struct TranslatorView: View {
@@ -44,24 +43,6 @@ struct TranslatorView: View {
 
                 HStack(spacing: 12) {
                     Spacer()
-
-                    // Load document button
-                    Button(action: {
-                        let panel = NSOpenPanel()
-                        panel.allowedContentTypes = [.plainText, .pdf]
-                        panel.allowsMultipleSelection = false
-                        panel.canChooseDirectories = false
-                        panel.message = NSLocalizedString("document.load", comment: "Select a document to translate")
-                        if panel.runModal() == .OK, let url = panel.url {
-                            viewModel.processDocument(url: url)
-                        }
-                    }) {
-                        Image(systemName: "doc.text")
-                    }
-                    .buttonStyle(.bordered)
-                    .help(NSLocalizedString("document.load", comment: "Load document"))
-                    .disabled(viewModel.isTranslating)
-
                     Button(action: {
                         Task { await viewModel.translate() }
                     }) {
@@ -115,61 +96,6 @@ struct TranslatorView: View {
             )
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
-
-            // Document progress bar
-            if viewModel.isDocumentMode {
-                HStack(spacing: 8) {
-                    Image(systemName: "doc.text.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    if let name = viewModel.documentFileName {
-                        Text(name)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-
-                    if viewModel.isTranslating {
-                        ProgressView(value: viewModel.documentProgress)
-                            .frame(maxWidth: 200)
-
-                        Text("\(Int(viewModel.documentProgress * 100))%")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                            .frame(width: 36, alignment: .trailing)
-
-                        Button(action: { viewModel.cancelDocument() }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(NSLocalizedString("document.cancel", comment: "Cancel"))
-                    } else if !viewModel.translatedText.isEmpty {
-                        Spacer()
-
-                        Button(action: { viewModel.exportDocument() }) {
-                            Label(NSLocalizedString("document.export", comment: "Export"),
-                                  systemImage: "square.and.arrow.up")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
-                        Button(action: { viewModel.exitDocumentMode() }) {
-                            Image(systemName: "xmark.circle")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(NSLocalizedString("document.close", comment: "Close document mode"))
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-            }
 
             // Status bar
             statusBar
