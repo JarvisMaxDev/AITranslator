@@ -2,25 +2,20 @@ import AVFoundation
 
 /// Text-to-Speech service using AVSpeechSynthesizer
 @MainActor
-final class TTSService: NSObject, ObservableObject {
+final class TTSService: ObservableObject {
     @Published var isSpeaking: Bool = false
 
-    private let synthesizer = AVSpeechSynthesizer()
+    private var synthesizer: AVSpeechSynthesizer?
     private var delegate: TTSDelegate?
 
-    override init() {
-        super.init()
-        delegate = TTSDelegate { [weak self] in
-            self?.isSpeaking = false
-        }
-        synthesizer.delegate = delegate
-    }
-
-    /// Speak text in the given language
+    /// Speak text in the given language (toggle: call again to stop)
     func speak(text: String, languageCode: String) {
-        if synthesizer.isSpeaking {
-            synthesizer.stopSpeaking(at: .immediate)
+        // If already speaking, stop
+        if isSpeaking {
+            synthesizer?.stopSpeaking(at: .immediate)
             isSpeaking = false
+            synthesizer = nil
+            delegate = nil
             return
         }
 
@@ -42,16 +37,30 @@ final class TTSService: NSObject, ObservableObject {
         }
 
         AppLogger.info("TTS", "Speaking in \(voiceLanguage): \(text.prefix(50))...")
+
+        // Create fresh synthesizer and delegate for each utterance
+        let synth = AVSpeechSynthesizer()
+        let del = TTSDelegate(onFinish: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.isSpeaking = false
+                self?.synthesizer = nil
+                self?.delegate = nil
+            }
+        })
+        synth.delegate = del
+        self.synthesizer = synth
+        self.delegate = del
+
         isSpeaking = true
-        synthesizer.speak(utterance)
+        synth.speak(utterance)
     }
 
     /// Stop speaking
     func stop() {
-        if synthesizer.isSpeaking {
-            synthesizer.stopSpeaking(at: .immediate)
-        }
+        synthesizer?.stopSpeaking(at: .immediate)
         isSpeaking = false
+        synthesizer = nil
+        delegate = nil
     }
 
     /// Map app language codes to BCP 47 codes for TTS
@@ -67,7 +76,7 @@ final class TTSService: NSObject, ObservableObject {
     }
 }
 
-// MARK: - Delegate (non-MainActor)
+// MARK: - Delegate
 
 private class TTSDelegate: NSObject, AVSpeechSynthesizerDelegate {
     private let onFinish: @Sendable () -> Void
@@ -78,15 +87,11 @@ private class TTSDelegate: NSObject, AVSpeechSynthesizerDelegate {
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                            didFinish utterance: AVSpeechUtterance) {
-        DispatchQueue.main.async {
-            self.onFinish()
-        }
+        onFinish()
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                            didCancel utterance: AVSpeechUtterance) {
-        DispatchQueue.main.async {
-            self.onFinish()
-        }
+        onFinish()
     }
 }
