@@ -1,50 +1,38 @@
 import AVFoundation
 
-/// Text-to-Speech service using OpenAI TTS API
-/// Falls back to system AVSpeechSynthesizer if no API key available
+/// Text-to-Speech service using OpenAI-compatible /v1/audio/speech endpoint
+/// Works with any provider that supports this endpoint (OpenAI, Qwen, etc.)
 @MainActor
 final class TTSService: ObservableObject {
     @Published var isSpeaking: Bool = false
 
     private var audioPlayer: AVAudioPlayer?
+    private var playerDelegate: PlayerDelegate?
     private var currentTask: Task<Void, Never>?
 
-    /// Available OpenAI TTS voices
-    static let voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+    /// Available TTS voices (OpenAI-compatible)
     static let defaultVoice = "nova"
 
-    /// Speak text using OpenAI TTS API
-    func speak(text: String, languageCode: String, providerConfigs: [ProviderConfig]? = nil) {
+    /// Speak text using the selected provider's TTS endpoint
+    func speak(text: String, languageCode: String,
+               selectedProviderId: String?,
+               providerConfigs: [ProviderConfig]) {
         // Toggle: if speaking, stop
         if isSpeaking {
             stop()
             return
         }
 
-        // Try to find OpenAI API key
-        let keychain = KeychainService.shared
-        var apiKey: String?
-
-        // Look for any OpenAI provider with API key
-        if let configs = providerConfigs {
-            for config in configs where config.type == .openai {
-                if let key = keychain.getAPIKey(forProvider: config.id) {
-                    apiKey = key
-                    break
-                }
-            }
-        }
-
-        guard let key = apiKey else {
-            AppLogger.error("TTS", "No OpenAI API key found, TTS unavailable")
-            // Fall back to system TTS
-            speakWithSystem(text: text, languageCode: languageCode)
+        // Find auth credentials and base URL for TTS
+        guard let ttsConfig = findTTSConfig(selectedProviderId: selectedProviderId,
+                                             configs: providerConfigs) else {
+            AppLogger.error("TTS", "No authenticated provider found for TTS")
             return
         }
 
         isSpeaking = true
         currentTask = Task {
-            await synthesizeWithOpenAI(text: text, apiKey: key)
+            await synthesize(text: text, config: ttsConfig)
         }
     }
 
@@ -54,18 +42,111 @@ final class TTSService: ObservableObject {
         currentTask = nil
         audioPlayer?.stop()
         audioPlayer = nil
+        playerDelegate = nil
         isSpeaking = false
     }
 
-    // MARK: - OpenAI TTS
+    // MARK: - Provider Resolution
 
-    private func synthesizeWithOpenAI(text: String, apiKey: String) async {
-        let url = URL(string: "https://api.openai.com/v1/audio/speech")!
+    private struct TTSConfig {
+        let authHeader: String
+        let baseURL: String
+    }
+
+    /// Find the best available TTS config from provider configs
+    private func findTTSConfig(selectedProviderId: String?,
+                                configs: [ProviderConfig]) -> TTSConfig? {
+        let keychain = KeychainService.shared
+
+        // Order: selected provider first, then any authenticated provider
+        var orderedConfigs = configs
+        if let selectedId = selectedProviderId,
+           let idx = orderedConfigs.firstIndex(where: { $0.id == selectedId }) {
+            let selected = orderedConfigs.remove(at: idx)
+            orderedConfigs.insert(selected, at: 0)
+        }
+
+        for config in orderedConfigs {
+            // Try OAuth tokens first
+            if let tokens = keychain.getOAuthTokens(forProvider: config.id) {
+                let baseURL = resolveBaseURL(tokens: tokens, config: config)
+                AppLogger.info("TTS", "Using \(config.type.displayName) OAuth for TTS (base: \(baseURL))")
+                return TTSConfig(authHeader: "Bearer \(tokens.accessToken)",
+                                baseURL: baseURL)
+            }
+
+            // Try API key
+            if let apiKey = keychain.getAPIKey(forProvider: config.id) {
+                let baseURL = resolveBaseURLForAPIKey(config: config)
+                AppLogger.info("TTS", "Using \(config.type.displayName) API key for TTS (base: \(baseURL))")
+                return TTSConfig(authHeader: "Bearer \(apiKey)",
+                                baseURL: baseURL)
+            }
+        }
+
+        return nil
+    }
+
+    /// Resolve base URL for OAuth-authenticated provider
+    private func resolveBaseURL(tokens: OAuthTokens, config: ProviderConfig) -> String {
+        // Use the same base URL the provider uses for translation
+        switch config.type {
+        case .qwen:
+            // Qwen OAuth uses resourceURL or portal.qwen.ai
+            if let resourceURL = tokens.resourceURL, !resourceURL.isEmpty {
+                var url = resourceURL
+                // Ensure it ends with /v1
+                if !url.hasSuffix("/v1") {
+                    url = url.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                    url += "/v1"
+                }
+                return url
+            }
+            return "https://portal.qwen.ai/v1"
+        case .openai:
+            return "https://api.openai.com/v1"
+        case .anthropic:
+            // Anthropic doesn't support TTS
+            return ""
+        case .gemini:
+            return "https://generativelanguage.googleapis.com/v1beta/openai"
+        }
+    }
+
+    /// Resolve base URL for API key provider
+    private func resolveBaseURLForAPIKey(config: ProviderConfig) -> String {
+        if !config.baseURL.isEmpty {
+            return config.baseURL
+        }
+        switch config.type {
+        case .qwen: return "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        case .openai: return "https://api.openai.com/v1"
+        case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai"
+        case .anthropic: return ""
+        }
+    }
+
+    // MARK: - Synthesis
+
+    private func synthesize(text: String, config: TTSConfig) async {
+        guard !config.baseURL.isEmpty else {
+            AppLogger.error("TTS", "Provider does not support TTS")
+            isSpeaking = false
+            return
+        }
+
+        let ttsURL = "\(config.baseURL)/audio/speech"
+        guard let url = URL(string: ttsURL) else {
+            AppLogger.error("TTS", "Invalid TTS URL: \(ttsURL)")
+            isSpeaking = false
+            return
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(config.authHeader, forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30
 
         // Truncate to TTS limit (4096 chars)
         let truncated = String(text.prefix(4096))
@@ -79,7 +160,7 @@ final class TTSService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        AppLogger.info("TTS", "OpenAI TTS: \(truncated.prefix(50))... voice=\(TTSService.defaultVoice)")
+        AppLogger.info("TTS", "POST \(ttsURL) voice=\(TTSService.defaultVoice)")
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -90,11 +171,10 @@ final class TTSService: ObservableObject {
                 throw NSError(domain: "TTS", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
             }
 
-            guard httpResponse.statusCode == 200 else {
+            if httpResponse.statusCode != 200 {
                 let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
-                AppLogger.error("TTS", "API error \(httpResponse.statusCode)", details: errorText)
-                // Fall back to system TTS on API error
-                speakWithSystem(text: String(text.prefix(500)), languageCode: "en")
+                AppLogger.error("TTS", "TTS error (\(httpResponse.statusCode))", details: errorText)
+                isSpeaking = false
                 return
             }
 
@@ -102,13 +182,16 @@ final class TTSService: ObservableObject {
 
             // Play audio
             let player = try AVAudioPlayer(data: data)
-            self.audioPlayer = player
-            player.delegate = PlayerDelegate { [weak self] in
+            let delegate = PlayerDelegate { [weak self] in
                 Task { @MainActor [weak self] in
                     self?.isSpeaking = false
                     self?.audioPlayer = nil
+                    self?.playerDelegate = nil
                 }
             }
+            player.delegate = delegate
+            self.audioPlayer = player
+            self.playerDelegate = delegate
             player.play()
 
             AppLogger.success("TTS", "Playing \(data.count) bytes of audio")
@@ -117,35 +200,6 @@ final class TTSService: ObservableObject {
                 AppLogger.error("TTS", "TTS failed", details: error.localizedDescription)
                 isSpeaking = false
             }
-        }
-    }
-
-    // MARK: - System TTS Fallback
-
-    private var systemSynthesizer: AVSpeechSynthesizer?
-
-    private func speakWithSystem(text: String, languageCode: String) {
-        let synth = AVSpeechSynthesizer()
-        systemSynthesizer = synth
-
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-
-        let voiceLanguage = mapLanguageCode(languageCode)
-        if let voice = AVSpeechSynthesisVoice(language: voiceLanguage) {
-            utterance.voice = voice
-        }
-
-        isSpeaking = true
-        synth.speak(utterance)
-    }
-
-    private func mapLanguageCode(_ code: String) -> String {
-        switch code {
-        case "zh": return "zh-CN"
-        case "pt": return "pt-BR"
-        case "en": return "en-US"
-        default: return code
         }
     }
 }

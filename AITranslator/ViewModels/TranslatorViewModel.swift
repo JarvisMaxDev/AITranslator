@@ -262,12 +262,14 @@ final class TranslatorViewModel: ObservableObject {
             ? (detectedLanguage?.code ?? "en")
             : sourceLanguage.code
         ttsService.speak(text: sourceText, languageCode: lang,
+                         selectedProviderId: settingsViewModel.selectedProviderId,
                          providerConfigs: settingsViewModel.providerConfigs)
     }
 
     /// Speak translated text
     func speakTranslation() {
         ttsService.speak(text: translatedText, languageCode: targetLanguage.code,
+                         selectedProviderId: settingsViewModel.selectedProviderId,
                          providerConfigs: settingsViewModel.providerConfigs)
     }
 
