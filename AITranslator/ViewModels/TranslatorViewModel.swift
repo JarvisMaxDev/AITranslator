@@ -261,12 +261,14 @@ final class TranslatorViewModel: ObservableObject {
         let lang = (sourceLanguage.code == "auto")
             ? (detectedLanguage?.code ?? "en")
             : sourceLanguage.code
-        ttsService.speak(text: sourceText, languageCode: lang)
+        ttsService.speak(text: sourceText, languageCode: lang,
+                         providerConfigs: settingsViewModel.providerConfigs)
     }
 
     /// Speak translated text
     func speakTranslation() {
-        ttsService.speak(text: translatedText, languageCode: targetLanguage.code)
+        ttsService.speak(text: translatedText, languageCode: targetLanguage.code,
+                         providerConfigs: settingsViewModel.providerConfigs)
     }
 
     /// Stop any TTS playback
