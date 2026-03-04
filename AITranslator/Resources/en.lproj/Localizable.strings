@@ -96,3 +96,6 @@
 "ocr.no_text" = "No text found in the image";
 "ocr.select_image" = "Select an image for text recognition";
 "ocr.load_image" = "Load image for OCR";
+
+/* TTS */
+"action.speak" = "Read aloud";

@@ -17,6 +17,7 @@ final class TranslatorViewModel: ObservableObject {
     @Published var detectedLanguage: Language?
 
     private let translationService = TranslationService()
+    let ttsService = TTSService()
     private let settingsViewModel: SettingsViewModel
     private var cancellables = Set<AnyCancellable>()
     private let recognizer = NLLanguageRecognizer()
@@ -251,5 +252,25 @@ final class TranslatorViewModel: ObservableObject {
            let lang = LanguageList.find(byCode: code) {
             targetLanguage = lang
         }
+    }
+
+    // MARK: - TTS
+
+    /// Speak source text
+    func speakSource() {
+        let lang = (sourceLanguage.code == "auto")
+            ? (detectedLanguage?.code ?? "en")
+            : sourceLanguage.code
+        ttsService.speak(text: sourceText, languageCode: lang)
+    }
+
+    /// Speak translated text
+    func speakTranslation() {
+        ttsService.speak(text: translatedText, languageCode: targetLanguage.code)
+    }
+
+    /// Stop any TTS playback
+    func stopSpeaking() {
+        ttsService.stop()
     }
 }

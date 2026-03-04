@@ -37,6 +37,7 @@
 		F0A11E29AD3846FC213DDAC2 /* TranslatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73016844C79CDDDF58BD8B3F /* TranslatorViewModel.swift */; };
 		F1DD709C42EFD236E926217C /* TranslationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14885D5F11B7413D17510A9 /* TranslationService.swift */; };
 		F93D57D773F9293B0C35D209 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 22B4F9C3B18040BB6074D790 /* Assets.xcassets */; };
+		F976B2C80DDF033B04CC8C9B /* TTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE73E810F36FCA5EED918887 /* TTSService.swift */; };
 		FC27C2FD89E80D6782B93869 /* LocalCallbackServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24C12507A3E2B0B129ADB8E0 /* LocalCallbackServer.swift */; };
 /* End PBXBuildFile section */
 
@@ -74,6 +75,7 @@
 		BBC7456FD22A0EA0D24EE1FF /* PopupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupViewModel.swift; sourceTree = "<group>"; };
 		C2EF75F340398B77F6B9AB5D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EAB91F217857DC697004B034 /* AnthropicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicProvider.swift; sourceTree = "<group>"; };
+		EE73E810F36FCA5EED918887 /* TTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSService.swift; sourceTree = "<group>"; };
 		F7B8CA44233633035B73CB24 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/Localizable.strings; sourceTree = "<group>"; };
 		FD147362A8A851D3B7EDE514 /* Translation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Translation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -197,6 +199,7 @@
 				4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */,
 				3A393634FA76187347E2D414 /* SSEStreamParser.swift */,
 				A14885D5F11B7413D17510A9 /* TranslationService.swift */,
+				EE73E810F36FCA5EED918887 /* TTSService.swift */,
 				5DE60ADD17BA496959097953 /* Auth */,
 				A91AB9387E3DBF84779036F4 /* Providers */,
 			);
@@ -344,6 +347,7 @@
 				599C79E3B6923B7276F869A0 /* SSEStreamParser.swift in Sources */,
 				5AB627C97F8DEF8997DF40EF /* SettingsView.swift in Sources */,
 				D2B14BD6377370F347812BC8 /* SettingsViewModel.swift in Sources */,
+				F976B2C80DDF033B04CC8C9B /* TTSService.swift in Sources */,
 				E93005480CBE8E46CAE1D148 /* Translation.swift in Sources */,
 				4F2EDD07859CD05FA4021B91 /* TranslationPanel.swift in Sources */,
 				F1DD709C42EFD236E926217C /* TranslationService.swift in Sources */,

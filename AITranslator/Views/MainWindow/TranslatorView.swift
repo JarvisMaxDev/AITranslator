@@ -73,7 +73,9 @@ struct TranslatorView: View {
                     onBeforeTextChange: { viewModel.saveState() },
                     onImagePasted: { image in
                         Task { await viewModel.processImage(image) }
-                    }
+                    },
+                    onSpeak: { viewModel.speakSource() },
+                    isSpeaking: viewModel.ttsService.isSpeaking
                 )
                 .frame(minWidth: 250, maxWidth: .infinity, maxHeight: .infinity)
 
@@ -84,7 +86,9 @@ struct TranslatorView: View {
                     placeholder: "",
                     isSource: false,
                     isLoading: viewModel.isTranslating,
-                    fontSize: CGFloat(fontSize)
+                    fontSize: CGFloat(fontSize),
+                    onSpeak: { viewModel.speakTranslation() },
+                    isSpeaking: viewModel.ttsService.isSpeaking
                 )
                 .frame(minWidth: 250, maxWidth: .infinity, maxHeight: .infinity)
             }

@@ -12,6 +12,8 @@ struct TranslationPanel: View {
     var detectedLanguage: String? = nil
     var onBeforeTextChange: (() -> Void)? = nil
     var onImagePasted: ((NSImage) -> Void)? = nil
+    var onSpeak: (() -> Void)? = nil
+    var isSpeaking: Bool = false
 
     @State private var isCopied = false
 
@@ -154,6 +156,19 @@ struct TranslationPanel: View {
                     .help(NSLocalizedString("action.clear", comment: "Clear"))
                     .disabled(text.isEmpty)
                     .opacity(text.isEmpty ? 0.3 : 1)
+
+                    // TTS button (source)
+                    if onSpeak != nil {
+                        Button(action: { onSpeak?() }) {
+                            Image(systemName: isSpeaking ? "stop.fill" : "speaker.wave.2")
+                                .font(.system(size: 13))
+                                .foregroundStyle(isSpeaking ? .blue : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(NSLocalizedString("action.speak", comment: "Read aloud"))
+                        .disabled(text.isEmpty)
+                        .opacity(text.isEmpty ? 0.3 : 1)
+                    }
                 } else {
                     // Copy button with feedback
                     Button(action: {
@@ -174,6 +189,19 @@ struct TranslationPanel: View {
                     .help(isCopied ? NSLocalizedString("action.copied", comment: "Copied!") : NSLocalizedString("action.copy", comment: "Copy"))
                     .disabled(text.isEmpty)
                     .opacity(text.isEmpty ? 0.3 : 1)
+
+                    // TTS button (target)
+                    if onSpeak != nil {
+                        Button(action: { onSpeak?() }) {
+                            Image(systemName: isSpeaking ? "stop.fill" : "speaker.wave.2")
+                                .font(.system(size: 13))
+                                .foregroundStyle(isSpeaking ? .blue : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(NSLocalizedString("action.speak", comment: "Read aloud"))
+                        .disabled(text.isEmpty)
+                        .opacity(text.isEmpty ? 0.3 : 1)
+                    }
                 }
             }
             .padding(.horizontal, 20)
