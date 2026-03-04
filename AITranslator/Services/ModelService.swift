@@ -6,7 +6,27 @@ final class ModelService {
 
     /// Fetch available Claude models from Anthropic API
     /// Requires OAuth token with anthropic-beta header
-    func fetchAnthropicModels(token: String) async -> [(id: String, name: String)] {
+    /// Auto-refreshes token on 401 and retries once
+    func fetchAnthropicModels(token: String, providerId: String? = nil) async -> [(id: String, name: String)] {
+        let result = await doFetchAnthropicModels(token: token)
+        if !result.isEmpty { return result }
+
+        // If failed and we have a provider ID, try refreshing the token
+        if let providerId = providerId {
+            do {
+                AppLogger.info("Models", "Anthropic token may be expired, refreshing...")
+                let newTokens = try await OAuthService.shared.refreshClaudeToken(forProvider: providerId)
+                AppLogger.success("Models", "Anthropic token refreshed, retrying models fetch")
+                return await doFetchAnthropicModels(token: newTokens.accessToken)
+            } catch {
+                AppLogger.error("Models", "Anthropic token refresh failed", details: error.localizedDescription)
+            }
+        }
+
+        return []
+    }
+
+    private func doFetchAnthropicModels(token: String) async -> [(id: String, name: String)] {
         guard let url = URL(string: "https://api.anthropic.com/v1/models") else { return [] }
 
         var request = URLRequest(url: url)

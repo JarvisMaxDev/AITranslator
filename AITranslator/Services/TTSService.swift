@@ -1,219 +1,126 @@
 import AVFoundation
 
-/// Text-to-Speech service using OpenAI-compatible /v1/audio/speech endpoint
-/// Works with any provider that supports this endpoint (OpenAI, Qwen, etc.)
+/// Text-to-Speech service using best available system voices
+/// Automatically selects Premium > Enhanced > Default quality voice for the language
 @MainActor
 final class TTSService: ObservableObject {
     @Published var isSpeaking: Bool = false
 
-    private var audioPlayer: AVAudioPlayer?
-    private var playerDelegate: PlayerDelegate?
-    private var currentTask: Task<Void, Never>?
+    private var synthesizer: AVSpeechSynthesizer?
+    private var delegate: SpeechDelegate?
 
-    /// Available TTS voices (OpenAI-compatible)
-    static let defaultVoice = "nova"
-
-    /// Speak text using the selected provider's TTS endpoint
+    /// Speak text using the best available system voice for the language
     func speak(text: String, languageCode: String,
-               selectedProviderId: String?,
-               providerConfigs: [ProviderConfig]) {
+               selectedProviderId: String? = nil,
+               providerConfigs: [ProviderConfig] = []) {
         // Toggle: if speaking, stop
         if isSpeaking {
             stop()
             return
         }
 
-        // Find auth credentials and base URL for TTS
-        guard let ttsConfig = findTTSConfig(selectedProviderId: selectedProviderId,
-                                             configs: providerConfigs) else {
-            AppLogger.error("TTS", "No authenticated provider found for TTS")
-            return
+        let synth = AVSpeechSynthesizer()
+        let del = SpeechDelegate { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.isSpeaking = false
+                self?.synthesizer = nil
+                self?.delegate = nil
+            }
         }
+        synth.delegate = del
+        self.synthesizer = synth
+        self.delegate = del
+
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95 // Slightly slower for clarity
+        utterance.pitchMultiplier = 1.0
+        utterance.volume = 1.0
+        utterance.prefersAssistiveTechnologySettings = false
+
+        // Select the best available voice for this language
+        let voiceLanguage = mapLanguageCode(languageCode)
+        let bestVoice = findBestVoice(for: voiceLanguage)
+        utterance.voice = bestVoice
+
+        let voiceName = bestVoice?.name ?? "default"
+        let quality = bestVoice.map { describeQuality($0.quality) } ?? "unknown"
+        AppLogger.info("TTS", "Speaking in \(voiceLanguage) with voice '\(voiceName)' (\(quality))")
 
         isSpeaking = true
-        currentTask = Task {
-            await synthesize(text: text, config: ttsConfig)
-        }
+        synth.speak(utterance)
     }
 
     /// Stop playback
     func stop() {
-        currentTask?.cancel()
-        currentTask = nil
-        audioPlayer?.stop()
-        audioPlayer = nil
-        playerDelegate = nil
+        synthesizer?.stopSpeaking(at: .immediate)
+        synthesizer = nil
+        delegate = nil
         isSpeaking = false
     }
 
-    // MARK: - Provider Resolution
+    // MARK: - Voice Selection
 
-    private struct TTSConfig {
-        let authHeader: String
-        let baseURL: String
-    }
+    /// Find the best available voice for a given language code
+    /// Prefers: Premium > Enhanced > Default quality
+    private func findBestVoice(for languageCode: String) -> AVSpeechSynthesisVoice? {
+        let allVoices = AVSpeechSynthesisVoice.speechVoices()
 
-    /// Find the best available TTS config from provider configs
-    private func findTTSConfig(selectedProviderId: String?,
-                                configs: [ProviderConfig]) -> TTSConfig? {
-        let keychain = KeychainService.shared
-
-        // Order: selected provider first, then any authenticated provider
-        var orderedConfigs = configs
-        if let selectedId = selectedProviderId,
-           let idx = orderedConfigs.firstIndex(where: { $0.id == selectedId }) {
-            let selected = orderedConfigs.remove(at: idx)
-            orderedConfigs.insert(selected, at: 0)
+        // Find voices matching the language
+        let matchingVoices = allVoices.filter { voice in
+            voice.language.lowercased().hasPrefix(languageCode.lowercased().components(separatedBy: "-").first ?? languageCode.lowercased())
         }
 
-        for config in orderedConfigs {
-            // Try OAuth tokens first
-            if let tokens = keychain.getOAuthTokens(forProvider: config.id) {
-                let baseURL = resolveBaseURL(tokens: tokens, config: config)
-                AppLogger.info("TTS", "Using \(config.type.displayName) OAuth for TTS (base: \(baseURL))")
-                return TTSConfig(authHeader: "Bearer \(tokens.accessToken)",
-                                baseURL: baseURL)
-            }
-
-            // Try API key
-            if let apiKey = keychain.getAPIKey(forProvider: config.id) {
-                let baseURL = resolveBaseURLForAPIKey(config: config)
-                AppLogger.info("TTS", "Using \(config.type.displayName) API key for TTS (base: \(baseURL))")
-                return TTSConfig(authHeader: "Bearer \(apiKey)",
-                                baseURL: baseURL)
-            }
+        if matchingVoices.isEmpty {
+            // Fallback to exact language match
+            return AVSpeechSynthesisVoice(language: languageCode)
         }
 
-        return nil
+        // Sort by quality: premium (2) > enhanced (1) > default (0)
+        let sorted = matchingVoices.sorted { $0.quality.rawValue > $1.quality.rawValue }
+
+        let best = sorted.first
+        return best
     }
 
-    /// Resolve base URL for OAuth-authenticated provider
-    private func resolveBaseURL(tokens: OAuthTokens, config: ProviderConfig) -> String {
-        // Use the same base URL the provider uses for translation
-        switch config.type {
-        case .qwen:
-            // Qwen OAuth uses resourceURL or portal.qwen.ai
-            if let resourceURL = tokens.resourceURL, !resourceURL.isEmpty {
-                var url = resourceURL
-                // Ensure it ends with /v1
-                if !url.hasSuffix("/v1") {
-                    url = url.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                    url += "/v1"
-                }
-                return url
-            }
-            return "https://portal.qwen.ai/v1"
-        case .openai:
-            return "https://api.openai.com/v1"
-        case .anthropic:
-            // Anthropic doesn't support TTS
-            return ""
-        case .gemini:
-            return "https://generativelanguage.googleapis.com/v1beta/openai"
+    /// Map app language codes to BCP 47 codes for TTS
+    private func mapLanguageCode(_ code: String) -> String {
+        switch code {
+        case "zh": return "zh-CN"
+        case "zh-TW": return "zh-TW"
+        case "pt": return "pt-BR"
+        case "pt-PT": return "pt-PT"
+        case "en": return "en-US"
+        default: return code
         }
     }
 
-    /// Resolve base URL for API key provider
-    private func resolveBaseURLForAPIKey(config: ProviderConfig) -> String {
-        if !config.baseURL.isEmpty {
-            return config.baseURL
-        }
-        switch config.type {
-        case .qwen: return "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        case .openai: return "https://api.openai.com/v1"
-        case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai"
-        case .anthropic: return ""
-        }
-    }
-
-    // MARK: - Synthesis
-
-    private func synthesize(text: String, config: TTSConfig) async {
-        guard !config.baseURL.isEmpty else {
-            AppLogger.error("TTS", "Provider does not support TTS")
-            isSpeaking = false
-            return
-        }
-
-        let ttsURL = "\(config.baseURL)/audio/speech"
-        guard let url = URL(string: ttsURL) else {
-            AppLogger.error("TTS", "Invalid TTS URL: \(ttsURL)")
-            isSpeaking = false
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(config.authHeader, forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
-
-        // Truncate to TTS limit (4096 chars)
-        let truncated = String(text.prefix(4096))
-
-        let body: [String: Any] = [
-            "model": "tts-1",
-            "input": truncated,
-            "voice": TTSService.defaultVoice,
-            "response_format": "mp3"
-        ]
-
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        AppLogger.info("TTS", "POST \(ttsURL) voice=\(TTSService.defaultVoice)")
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard !Task.isCancelled else { return }
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw NSError(domain: "TTS", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
-            }
-
-            if httpResponse.statusCode != 200 {
-                let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
-                AppLogger.error("TTS", "TTS error (\(httpResponse.statusCode))", details: errorText)
-                isSpeaking = false
-                return
-            }
-
-            guard !Task.isCancelled else { return }
-
-            // Play audio
-            let player = try AVAudioPlayer(data: data)
-            let delegate = PlayerDelegate { [weak self] in
-                Task { @MainActor [weak self] in
-                    self?.isSpeaking = false
-                    self?.audioPlayer = nil
-                    self?.playerDelegate = nil
-                }
-            }
-            player.delegate = delegate
-            self.audioPlayer = player
-            self.playerDelegate = delegate
-            player.play()
-
-            AppLogger.success("TTS", "Playing \(data.count) bytes of audio")
-        } catch {
-            if !Task.isCancelled {
-                AppLogger.error("TTS", "TTS failed", details: error.localizedDescription)
-                isSpeaking = false
-            }
+    /// Describe voice quality for logging
+    private func describeQuality(_ quality: AVSpeechSynthesisVoiceQuality) -> String {
+        switch quality {
+        case .default: return "default"
+        case .enhanced: return "enhanced"
+        case .premium: return "premium"
+        @unknown default: return "unknown"
         }
     }
 }
 
-// MARK: - Audio Player Delegate
+// MARK: - Speech Delegate
 
-private class PlayerDelegate: NSObject, AVAudioPlayerDelegate {
+private class SpeechDelegate: NSObject, AVSpeechSynthesizerDelegate {
     private let onFinish: @Sendable () -> Void
 
     init(onFinish: @escaping @Sendable () -> Void) {
         self.onFinish = onFinish
     }
 
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
+                           didFinish utterance: AVSpeechUtterance) {
+        onFinish()
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
+                           didCancel utterance: AVSpeechUtterance) {
         onFinish()
     }
 }

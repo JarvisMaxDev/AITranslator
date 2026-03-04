@@ -44,7 +44,8 @@ final class SettingsViewModel: ObservableObject {
             switch config.type {
             case .anthropic:
                 if let tokens = oauthTokens {
-                    let models = await ModelService.shared.fetchAnthropicModels(token: tokens.accessToken)
+                    let models = await ModelService.shared.fetchAnthropicModels(
+                        token: tokens.accessToken, providerId: config.id)
                     fetchedModels[id] = models
                     AppLogger.info("Models", "Loaded \(models.count) Anthropic models")
                 }
