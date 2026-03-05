@@ -73,10 +73,12 @@ struct AITranslatorApp: App {
             }
         }
 
-        Settings {
+        Window(NSLocalizedString("settings.title", comment: "Settings"), id: "settings") {
             SettingsView()
                 .environmentObject(settingsViewModel)
         }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 
     private func handleOAuthCallback(url: URL) {

@@ -121,6 +121,9 @@ struct TranslatorView: View {
                 .keyboardShortcut(",", modifiers: .command)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+            openWindow(id: "settings")
+        }
         // Font size keyboard shortcuts
         .background(
             Group {
