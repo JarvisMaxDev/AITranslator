@@ -56,6 +56,7 @@
 "settings.hotkey" = "Global Hotkey";
 "settings.hotkey_translate" = "Translate selected text";
 "settings.hotkey_press" = "Press shortcut...";
+"settings.launch_at_login" = "Launch at Login";
 
 /* App Language */
 "settings.app_language" = "App Language";

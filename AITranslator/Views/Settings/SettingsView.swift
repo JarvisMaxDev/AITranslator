@@ -1,5 +1,6 @@
 import SwiftUI
 import Carbon.HIToolbox
+import ServiceManagement
 
 struct SettingsView: View {
     @EnvironmentObject var settingsViewModel: SettingsViewModel
@@ -151,6 +152,7 @@ struct SettingsView: View {
 
     @State private var accessibilityGranted = AXIsProcessTrusted()
     @State private var automationGranted = false
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     private var generalTab: some View {
         VStack {
@@ -185,6 +187,31 @@ struct SettingsView: View {
                         )
                         .fixedSize()
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    HStack(spacing: 24) {
+                        Text(NSLocalizedString("settings.launch_at_login", comment: ""))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+
+                        Toggle("", isOn: $launchAtLogin)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .onChange(of: launchAtLogin) { newValue in
+                                do {
+                                    if newValue {
+                                        try SMAppService.mainApp.register()
+                                        AppLogger.success("Settings", "Launch at login enabled")
+                                    } else {
+                                        try SMAppService.mainApp.unregister()
+                                        AppLogger.info("Settings", "Launch at login disabled")
+                                    }
+                                } catch {
+                                    AppLogger.error("Settings", "Launch at login failed", details: error.localizedDescription)
+                                    // Revert toggle on failure
+                                    launchAtLogin = !newValue
+                                }
+                            }
                     }
                 }
                 .padding(24)

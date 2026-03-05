@@ -56,6 +56,7 @@
 "settings.hotkey" = "Глобальный хоткей";
 "settings.hotkey_translate" = "Перевести выделенный текст";
 "settings.hotkey_press" = "Нажмите комбинацию...";
+"settings.launch_at_login" = "Запускать при входе";
 
 /* App Language */
 "settings.app_language" = "Язык приложения";
