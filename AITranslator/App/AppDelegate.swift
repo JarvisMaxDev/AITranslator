@@ -15,6 +15,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         requestAccessibility()
         setupGlobalHotkey()
+
+        // Listen for settings open requests from TranslatorView gear button
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(openSettings),
+            name: .openSettings,
+            object: nil
+        )
     }
 
     private func requestAccessibility() {
@@ -88,7 +96,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
-        NotificationCenter.default.post(name: .openSettings, object: nil)
+        showSettingsWindow()
+    }
+
+    private var settingsWindow: NSWindow?
+
+    /// Create or show the settings window using NSWindow + NSHostingView
+    /// Works on all macOS versions (12+)
+    private func showSettingsWindow() {
+        // Bring existing window to front
+        if let window = settingsWindow, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        guard let vm = settingsViewModel else { return }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 650, height: 480),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.title = NSLocalizedString("settings.title", comment: "Settings")
+        window.contentView = NSHostingView(rootView:
+            SettingsView()
+                .environmentObject(vm)
+        )
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        settingsWindow = window
     }
 
     private var consoleWindow: NSWindow?
