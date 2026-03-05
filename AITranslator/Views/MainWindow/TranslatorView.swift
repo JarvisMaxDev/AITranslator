@@ -108,7 +108,7 @@ struct TranslatorView: View {
                 .frame(height: 38)
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle("macOS Translator")
+        .navigationTitle("AI Translator")
         // Minimal native toolbar for the settings gear, keeping it out of the main layout, similar to standard apps
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
