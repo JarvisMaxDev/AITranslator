@@ -3,14 +3,14 @@ options:
   minimumXcodeGenVersion: "2.38"
   bundleIdPrefix: com.aitranslator
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "12.0"
   xcodeVersion: "16.0"
   defaultConfig: Debug
 
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    MACOSX_DEPLOYMENT_TARGET: "12.0"
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
 

@@ -287,7 +287,6 @@
 				};
 			};
 			buildConfigurationList = 91300637EB6AACFB2C622A7E /* Build configuration list for PBXProject "AITranslator" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -298,6 +297,7 @@
 			mainGroup = EC445F999389B68C113698F7;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 264EFDAD9592FA01BD6506DB /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
