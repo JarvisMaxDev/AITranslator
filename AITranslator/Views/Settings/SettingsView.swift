@@ -101,7 +101,7 @@ struct SettingsView: View {
                 .background(Color(nsColor: .windowBackgroundColor))
             }
         }
-        .frame(width: 650, height: 480)
+        .frame(width: 650, height: 540)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             draftConfigs = settingsViewModel.providerConfigs
