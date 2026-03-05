@@ -54,6 +54,17 @@ final class TranslatorViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Auto-translate when target language changes (if there's text)
+        $targetLanguage
+            .dropFirst() // Skip initial value on launch
+            .debounce(for: .milliseconds(200), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self,
+                      !self.sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                Task { await self.translate() }
+            }
+            .store(in: &cancellables)
+
         // Restore saved language preferences
         restoreLanguagePreferences()
     }
