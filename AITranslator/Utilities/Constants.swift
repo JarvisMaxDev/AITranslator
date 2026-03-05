@@ -6,7 +6,7 @@ enum Constants {
     static let doublePressInterval: TimeInterval = 0.4
 
     /// Maximum text length for translation
-    static let maxTextLength = 10000
+    static let maxTextLength = 100000
 
     /// UserDefaults keys
     enum UserDefaultsKeys {
