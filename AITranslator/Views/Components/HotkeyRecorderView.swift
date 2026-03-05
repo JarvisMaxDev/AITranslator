@@ -114,6 +114,7 @@ struct HotkeyRecorderView: View {
 
 extension Notification.Name {
     static let hotkeyChanged = Notification.Name("hotkeyChanged")
+    static let openSettings = Notification.Name("openSettings")
 }
 
 // MARK: - Key Event Catcher (NSViewRepresentable)

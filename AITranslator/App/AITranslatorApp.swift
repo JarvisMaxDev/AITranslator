@@ -25,6 +25,9 @@ struct AITranslatorApp: App {
                 .onOpenURL { url in
                     handleOAuthCallback(url: url)
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+                    openSettingsWindow()
+                }
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))
@@ -86,5 +89,40 @@ struct AITranslatorApp: App {
         Task {
             await settingsViewModel.handleOAuthCallback(url: url)
         }
+    }
+
+    private var settingsWindow: NSWindow?
+
+    private func openSettingsWindow() {
+        // If settings window already exists and visible, just bring to front
+        if let window = settingsWindow, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        // Also check if SwiftUI already opened one
+        if let window = NSApp.windows.first(where: {
+            $0.title == NSLocalizedString("settings.title", comment: "")
+        }) {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        // Create a new settings window
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 650, height: 480),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.title = NSLocalizedString("settings.title", comment: "Settings")
+        window.contentView = NSHostingView(rootView:
+            SettingsView()
+                .environmentObject(settingsViewModel)
+        )
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        settingsWindow = window
     }
 }

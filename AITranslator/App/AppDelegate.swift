@@ -88,7 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        NotificationCenter.default.post(name: .openSettings, object: nil)
     }
 
     private var consoleWindow: NSWindow?

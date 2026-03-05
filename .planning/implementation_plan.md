@@ -8,29 +8,31 @@
 
 ### ✅ Реализовано (MVP)
 
-| Функция                  | Детали                                                          |
-| ------------------------ | --------------------------------------------------------------- |
-| Двухпанельный переводчик | Источник → перевод, TextEditor с placeholder                    |
-| **4 AI-провайдера**      | Qwen, Claude, OpenAI, Gemini                                    |
-| Qwen + Claude OAuth      | Device code flow (Qwen), PKCE + localhost callback (Claude)     |
-| OpenAI + Gemini          | API key auth, OpenAI-совместимый формат                         |
-| Загрузка моделей         | `/v1/models` API + hardcoded fallback                           |
-| Настройки                | Нативное окно, выбор модели, Save/Cancel (всегда видны)         |
-| Выбор языка              | Popover + поиск + флаги + недавние языки                        |
-| Авто-определение языка   | `NLLanguageRecognizer`, отображение "(auto)"                    |
-| ⇄ Swap языков/текстов    | Работает с Auto Detect                                          |
-| Глобальный хоткей        | ⌘⇧C (настраиваемый через HotkeyRecorder)                        |
-| Auto-refresh токенов     | Qwen (`x-www-form-urlencoded`) + Claude (JSON)                  |
-| Cmd+Enter                | Отправка перевода                                               |
-| Понятные ошибки          | Локализованные сообщения                                        |
-| Локализация RU/EN        | По языку системы + переключатель в настройках                   |
-| Консоль отладки          | AppLogger + ConsoleView (⌘L), JSON payload/response             |
-| **Стриминг перевода**    | SSE, токен за токеном, анимированный курсор                     |
-| **OCR**                  | Cmd+V картинки или загрузка файла → Vision → перевод            |
-| **Размер шрифта**        | 10-24pt, Cmd+/Cmd-, сохраняется в UserDefaults                  |
-| **Outlook Cmd+C**        | CGEvent combinedSessionState + AppleScript fallback             |
-| **Undo/Redo**            | Cmd+Z / Cmd+Shift+Z для текстовых изменений                     |
-| **TTS**                  | Озвучка текста (AVSpeechSynthesizer), кнопка 🔊 в обеих панелях |
+| Функция                  | Детали                                                                 |
+| ------------------------ | ---------------------------------------------------------------------- |
+| Двухпанельный переводчик | Источник → перевод, TextEditor с placeholder                           |
+| **4 AI-провайдера**      | Qwen, Claude, OpenAI, Gemini                                           |
+| Qwen + Claude OAuth      | Device code flow (Qwen), PKCE + localhost callback (Claude)            |
+| OpenAI + Gemini          | API key auth, OpenAI-совместимый формат                                |
+| Загрузка моделей         | `/v1/models` API + hardcoded fallback                                  |
+| Настройки                | Нативное окно, выбор модели, Save/Cancel (всегда видны)                |
+| Выбор языка              | Popover + поиск + флаги + недавние языки                               |
+| Авто-определение языка   | `NLLanguageRecognizer`, отображение "(auto)"                           |
+| ⇄ Swap языков/текстов    | Работает с Auto Detect                                                 |
+| Глобальный хоткей        | ⌘⇧C (настраиваемый через HotkeyRecorder)                               |
+| Auto-refresh токенов     | Qwen (`x-www-form-urlencoded`) + Claude (JSON)                         |
+| Cmd+Enter                | Отправка перевода                                                      |
+| Понятные ошибки          | Локализованные сообщения                                               |
+| Локализация RU/EN        | По языку системы + переключатель в настройках                          |
+| Консоль отладки          | AppLogger + ConsoleView (⌘L), JSON payload/response                    |
+| **Стриминг перевода**    | SSE, токен за токеном, анимированный курсор                            |
+| **OCR**                  | Cmd+V картинки или загрузка файла → Vision → перевод                   |
+| **Размер шрифта**        | 10-24pt, Cmd+/Cmd-, сохраняется в UserDefaults                         |
+| **Outlook Cmd+C**        | CGEvent combinedSessionState + AppleScript fallback                    |
+| **Undo/Redo**            | Cmd+Z / Cmd+Shift+Z для текстовых изменений                            |
+| **TTS**                  | Системный TTS, автовыбор лучшего голоса (Premium > Enhanced > Default) |
+| **Автозагрузка**         | SMAppService, toggle в настройках                                      |
+| **Авто-перевод**         | Автоматический перевод при смене целевого языка                        |
 
 ### ✅ CI/CD (полностью автоматизировано)
 
@@ -46,7 +48,6 @@
 
 ### 📋 Следующие задачи
 
-- [ ] Автозагрузка при входе в систему
 - [ ] Кастомный OpenAI-совместимый эндпоинт (Ollama, LM Studio, OpenRouter)
 - [ ] История переводов
 
