@@ -1,80 +1,49 @@
-# V2: Поддержка macOS 12 + Intel
+# V2: Поддержка macOS 12 + Intel ✅
 
-## Цель
+## Статус: Завершено, замерджено в main
 
-Опустить deployment target с macOS 14.0 до macOS 12.0 и добавить Universal Binary (arm64 + x86_64) для поддержки Intel Mac.
+**Версия:** 2.0.0  
+**Ветка:** `v2/macos12-intel` → merged into `main`
 
-## Анализ совместимости
+## Что изменено
 
-### ✅ Уже совместимо с macOS 12
+### 1. project.yml
 
-- `async/await`, `Task {}` — Swift concurrency (macOS 12 с Xcode 13.2+)
-- `NLLanguageRecognizer` — macOS 10.14+
-- `AVSpeechSynthesizer` — macOS 10.14+
-- `AXUIElement` — macOS 10.0+
-- `CGEvent` — macOS 10.4+
-- `URLSession.data(for:)` — macOS 12+
-- `NSStatusItem`, `NSMenu` — macOS 10.0+
-- `@StateObject`, `@Published` — macOS 10.15+ (Combine)
-- `GroupBox`, `Toggle`, `Picker` — macOS 10.15+
-- `.onChange(of:) { newValue in }` — macOS 12+ (старый синтаксис, ОК)
-
-### ⚠️ Требует #available fallback (macOS 13+)
-
-| API                          | Используется в        | Fallback                                                     |
-| ---------------------------- | --------------------- | ------------------------------------------------------------ |
-| `SMAppService.mainApp`       | SettingsView.swift    | `LSSharedFileListInsertItemURL` (deprecated) или `launchctl` |
-| `Window(id:)` scene          | AITranslatorApp.swift | `NSWindow` + `NSHostingView` (ручное создание)               |
-| `@Environment(\.openWindow)` | TranslatorView.swift  | NotificationCenter → NSWindow                                |
-| `.windowResizability()`      | AITranslatorApp.swift | Убрать (не критично)                                         |
-| `.defaultSize()`             | AITranslatorApp.swift | `.frame()` внутри view                                       |
-| `.defaultPosition()`         | AITranslatorApp.swift | `window.center()`                                            |
-
-### 🔧 Universal Binary (Intel + Apple Silicon)
-
-- Добавить `ARCHS = "arm64 x86_64"` в Build Settings
-- Или `ONLY_ACTIVE_ARCH = NO` для Release
-- CI workflow: добавить `destination 'arch=x86_64'` или `ARCHS="arm64 x86_64"`
-
-## Предлагаемые изменения
-
-### 1. Xcode Project
-
-- `MACOSX_DEPLOYMENT_TARGET` = `12.0`
-- `ARCHS` = `arm64 x86_64` (Universal Binary)
+- `deploymentTarget.macOS`: `14.0` → `12.0`
+- `MACOSX_DEPLOYMENT_TARGET`: `14.0` → `12.0`
 
 ### 2. AITranslatorApp.swift
 
-- Обернуть `Window(id:)` в `if #available(macOS 13, *)`
-- Для macOS 12: использовать NSWindow через AppDelegate для settings
+- Убрана `Window(id: "settings")` scene — настройки через AppDelegate NSWindow
+- Убрана `.defaultSize()`, `.windowResizability()`, `.defaultPosition()`
+- Заголовок окна: `macOS Translator` → `AI Translator`
 
-### 3. TranslatorView.swift
+### 3. AppDelegate.swift
 
-- Обернуть `@Environment(\.openWindow)` в `if #available(macOS 13, *)`
-- Для macOS 12: NotificationCenter → AppDelegate → NSWindow
+- Добавлен NSWindow handler для настроек (`showSettingsWindow()`)
+- NotificationCenter observer для `.openSettings` notification
+- Работает на всех версиях macOS (12+)
 
-### 4. SettingsView.swift
+### 4. TranslatorView.swift
 
-- `SMAppService`: `if #available(macOS 13, *) { ... }` + скрыть toggle на macOS 12
-- Или: использовать `LoginItem` helper app (сложнее)
+- Убран `@Environment(\.openWindow)` (macOS 13+)
+- Кнопка ⚙️ и Cmd+, → `post(.openSettings)` notification
 
-### 5. CI Workflow
+### 5. SettingsView.swift
 
-- `xcodebuild ... ARCHS="arm64 x86_64"`
-- Тестировать на macOS-latest (ARM) — Intel собирается кросс-компиляцией
+- `SMAppService` обёрнут в `#available(macOS 13)`
+- Toggle «Запускать при входе» скрыт на macOS 12
 
-## Риски
+### 6. Мелкие фиксы совместимости
 
-> [!WARNING]
-> Основное ограничение: **нет возможности протестировать на реальном Intel Mac и macOS 12**. Можем только убедиться что код компилируется. Рантайм-тестирование потребует виртуалку или реальный Intel Mac.
+- `.fontWeight()` → `.font().weight()` (LanguageSelectorView, ConsoleView)
+- `.scrollContentBackground(.hidden)` → `.background(Color.clear)` (TranslationPanel)
 
-> [!IMPORTANT]
-> `Window(id:)` — центральная архитектурная зависимость. На macOS 12 окно настроек нужно создавать вручную через NSWindow. Это увеличивает сложность кода.
+### 7. CI Workflow
 
-## Порядок выполнения
+- `ARCHS="arm64 x86_64"`, `ONLY_ACTIVE_ARCH=NO`
 
-1. Изменить deployment target и архитектуру
-2. Собрать — увидеть все ошибки компиляции
-3. Поочерёдно исправить каждую ошибку с `#available` fallback
-4. Протестировать сборку
-5. Обновить CI workflow
+## Нужно проверить
+
+- [ ] Тест на реальном Intel Mac
+- [ ] Тест на macOS 12 (виртуалка или реальная машина)
