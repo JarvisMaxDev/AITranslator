@@ -70,6 +70,7 @@ struct AITranslatorApp: App {
                 }
                 .keyboardShortcut("a", modifiers: .command)
             }
+        }
     }
 
     private func handleOAuthCallback(url: URL) {
