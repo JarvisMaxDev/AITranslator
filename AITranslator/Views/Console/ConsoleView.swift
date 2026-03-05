@@ -158,9 +158,8 @@ private struct LogEntryRow: View {
                     .font(.caption)
 
                 Text("[\(entry.category)]")
-                    .font(.system(.caption, design: .monospaced))
+                    .font(.system(.caption, design: .monospaced).weight(.semibold))
                     .foregroundStyle(categoryColor)
-                    .fontWeight(.semibold)
 
                 Text(entry.message)
                     .font(.system(.caption, design: .monospaced))

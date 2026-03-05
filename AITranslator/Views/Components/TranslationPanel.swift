@@ -57,7 +57,7 @@ struct TranslationPanel: View {
                     TextEditor(text: $text)
                         .font(.system(size: fontSize))
                         .lineSpacing(3)
-                        .scrollContentBackground(.hidden)
+                        .background(Color.clear)
                         .padding(.horizontal, 16)
                         .padding(.top, 7)
                 } else {

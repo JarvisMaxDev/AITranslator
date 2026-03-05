@@ -28,7 +28,6 @@ struct AITranslatorApp: App {
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))
-        .defaultSize(width: 900, height: 600)
         .commands {
             CommandGroup(replacing: .undoRedo) {
                 Button(NSLocalizedString("action.undo", comment: "Undo")) {
@@ -72,13 +71,6 @@ struct AITranslatorApp: App {
                 .keyboardShortcut("a", modifiers: .command)
             }
         }
-
-        Window(NSLocalizedString("settings.title", comment: "Settings"), id: "settings") {
-            SettingsView()
-                .environmentObject(settingsViewModel)
-        }
-        .windowResizability(.contentSize)
-        .defaultPosition(.center)
     }
 
     private func handleOAuthCallback(url: URL) {

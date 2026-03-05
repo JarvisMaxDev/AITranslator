@@ -187,7 +187,7 @@ private struct LanguagePopoverContent: View {
                 if selectedLanguage.code == language.code {
                     Image(systemName: "checkmark")
                         .foregroundStyle(.blue)
-                        .fontWeight(.semibold)
+                        .font(.body.weight(.semibold))
                 }
             }
             .contentShape(Rectangle())

@@ -4,7 +4,7 @@ import SwiftUI
 struct TranslatorView: View {
     @EnvironmentObject var viewModel: TranslatorViewModel
     @EnvironmentObject var settingsViewModel: SettingsViewModel
-    @Environment(\.openWindow) private var openWindow
+
 
     @AppStorage(Constants.UserDefaultsKeys.fontSize) private var fontSize: Double = 14
     @State private var swapRotation: Double = 0
@@ -108,21 +108,17 @@ struct TranslatorView: View {
                 .frame(height: 38)
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle("macOS Translator")
+        .navigationTitle("AI Translator")
         // Minimal native toolbar for the settings gear, keeping it out of the main layout, similar to standard apps
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: {
-                    openWindow(id: "settings")
-                    NSApp.activate(ignoringOtherApps: true)
+                    openSettings()
                 }) {
                     Image(systemName: "gearshape")
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
-            openWindow(id: "settings")
         }
         // Font size keyboard shortcuts
         .background(
@@ -138,6 +134,12 @@ struct TranslatorView: View {
     }
 
     // MARK: - Status Bar
+
+    /// Open settings window via notification — handled by AppDelegate
+    private func openSettings() {
+        NSApp.activate(ignoringOtherApps: true)
+        NotificationCenter.default.post(name: .openSettings, object: nil)
+    }
 
     private var statusBar: some View {
         HStack(spacing: 12) {

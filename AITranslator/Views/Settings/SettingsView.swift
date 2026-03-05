@@ -152,7 +152,12 @@ struct SettingsView: View {
 
     @State private var accessibilityGranted = AXIsProcessTrusted()
     @State private var automationGranted = false
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var launchAtLogin: Bool = {
+        if #available(macOS 13.0, *) {
+            return SMAppService.mainApp.status == .enabled
+        }
+        return false
+    }()
 
     private var generalTab: some View {
         VStack {
@@ -189,29 +194,31 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    HStack(spacing: 24) {
-                        Text(NSLocalizedString("settings.launch_at_login", comment: ""))
-                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    if #available(macOS 13.0, *) {
+                        HStack(spacing: 24) {
+                            Text(NSLocalizedString("settings.launch_at_login", comment: ""))
+                                .frame(maxWidth: .infinity, alignment: .trailing)
 
-                        Toggle("", isOn: $launchAtLogin)
-                            .labelsHidden()
-                            .toggleStyle(.switch)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .onChange(of: launchAtLogin) { newValue in
-                                do {
-                                    if newValue {
-                                        try SMAppService.mainApp.register()
-                                        AppLogger.success("Settings", "Launch at login enabled")
-                                    } else {
-                                        try SMAppService.mainApp.unregister()
-                                        AppLogger.info("Settings", "Launch at login disabled")
+                            Toggle("", isOn: $launchAtLogin)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .onChange(of: launchAtLogin) { newValue in
+                                    do {
+                                        if newValue {
+                                            try SMAppService.mainApp.register()
+                                            AppLogger.success("Settings", "Launch at login enabled")
+                                        } else {
+                                            try SMAppService.mainApp.unregister()
+                                            AppLogger.info("Settings", "Launch at login disabled")
+                                        }
+                                    } catch {
+                                        AppLogger.error("Settings", "Launch at login failed", details: error.localizedDescription)
+                                        // Revert toggle on failure
+                                        launchAtLogin = !newValue
                                     }
-                                } catch {
-                                    AppLogger.error("Settings", "Launch at login failed", details: error.localizedDescription)
-                                    // Revert toggle on failure
-                                    launchAtLogin = !newValue
                                 }
-                            }
+                        }
                     }
                 }
                 .padding(24)
