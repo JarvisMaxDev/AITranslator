@@ -34,6 +34,28 @@
 | **Автозагрузка**         | SMAppService, toggle в настройках                                      |
 | **Авто-перевод**         | Автоматический перевод при смене целевого языка                        |
 
+### ✅ V2: macOS 12 + Intel (Universal Binary)
+
+| Изменение               | Детали                                                |
+| ----------------------- | ----------------------------------------------------- |
+| **Deployment target**   | 14.0 → 12.0                                           |
+| **Universal Binary**    | arm64 + x86_64 (Intel + Apple Silicon)                |
+| **SMAppService**        | `#available(macOS 13)`, toggle скрыт на macOS 12      |
+| **Settings window**     | Единый NSWindow через AppDelegate (убран Window(id:)) |
+| **openWindow**          | Заменён на NotificationCenter → AppDelegate           |
+| **fontWeight/scrollBG** | Заменены на macOS 12-совместимые аналоги              |
+| **CI**                  | `ARCHS="arm64 x86_64"`, `ONLY_ACTIVE_ARCH=NO`         |
+
+### ✅ Стабилизация (code review fixes)
+
+| Шаг | Что                                                                           | Статус |
+| --- | ----------------------------------------------------------------------------- | ------ |
+| 1   | **Auto-detect fix** — `detectedLanguage` с реальным ISO-кодом вместо `"auto"` | ✅     |
+| 2   | **maxTextLength validation** — guard перед API call (100K)                    | ✅     |
+| 3   | **Dead code removal** — PopupTranslatorView, PopupViewModel (162 строки)      | ✅     |
+| 4   | **Compiler warnings** — 0 warnings                                            | ✅     |
+| 5   | **Unit тесты** — 24 теста (Language, Constants, ViewModel), 0 failures        | ✅     |
+
 ### ✅ CI/CD (полностью автоматизировано)
 
 | Функция                   | Детали                                                              |
@@ -48,6 +70,8 @@
 
 ### 📋 Следующие задачи
 
+- [ ] AppDelegate рефакторинг (вынести HotkeyService, StatusBarController)
+- [ ] Security hardening (OAuth tokens → Keychain, sandbox)
 - [ ] Кастомный OpenAI-совместимый эндпоинт (Ollama, LM Studio, OpenRouter)
 - [ ] История переводов
 
@@ -85,6 +109,7 @@ AITranslator/
 ├── ViewModels/       # TranslatorViewModel, SettingsViewModel
 ├── Views/            # TranslatorView, SettingsView, Console, Components
 └── Resources/        # Info.plist, en/ru Localizable.strings, Entitlements
+AITranslatorTests/    # Unit тесты (Language, Constants, ViewModel)
 ```
 
 ## Ключевые решения
