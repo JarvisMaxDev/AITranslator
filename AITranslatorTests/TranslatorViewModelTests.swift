@@ -9,6 +9,9 @@ final class TranslatorViewModelTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        // Clean language preferences to test default state
+        UserDefaults.standard.removeObject(forKey: Constants.UserDefaultsKeys.sourceLanguageCode)
+        UserDefaults.standard.removeObject(forKey: Constants.UserDefaultsKeys.targetLanguageCode)
         settingsVM = SettingsViewModel()
         vm = TranslatorViewModel(settingsViewModel: settingsVM)
     }

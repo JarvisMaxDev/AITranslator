@@ -67,6 +67,17 @@ final class TranslatorViewModel: ObservableObject {
 
         // Restore saved language preferences
         restoreLanguagePreferences()
+
+        // Auto-save language preferences when either language changes
+        $sourceLanguage
+            .dropFirst() // Skip initial + restored value
+            .sink { [weak self] _ in self?.saveLanguagePreferences() }
+            .store(in: &cancellables)
+
+        $targetLanguage
+            .dropFirst()
+            .sink { [weak self] _ in self?.saveLanguagePreferences() }
+            .store(in: &cancellables)
     }
 
     /// Detect language from text using NLLanguageRecognizer
