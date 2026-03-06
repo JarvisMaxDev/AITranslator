@@ -90,6 +90,11 @@ final class TranslatorViewModel: ObservableObject {
         let text = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
+        guard text.count <= Constants.maxTextLength else {
+            error = NSLocalizedString("error.text_too_long", comment: "Text exceeds maximum length")
+            return
+        }
+
         guard let selectedId = settingsViewModel.selectedProviderId else {
             error = NSLocalizedString("error.no_provider_selected", comment: "No provider selected")
             return

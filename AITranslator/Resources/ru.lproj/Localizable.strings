@@ -77,6 +77,7 @@
 "error.invalid_response" = "Некорректный ответ от провайдера";
 "error.token_expired" = "Сессия истекла. Подключитесь заново.";
 "error.no_provider_selected" = "Провайдер не выбран. Откройте Настройки.";
+"error.text_too_long" = "Текст превышает максимальную длину (100 000 символов).";
 "error.provider_not_found" = "Провайдер не найден";
 "error.translation_failed" = "Ошибка перевода";
 "error.qwen_cli_not_found" = "Qwen CLI не найден. Установите 'qwen-code' CLI и выполните '/auth', или используйте API-ключ.";

@@ -77,6 +77,7 @@
 "error.invalid_response" = "Invalid response from provider";
 "error.token_expired" = "Session expired. Please reconnect.";
 "error.no_provider_selected" = "No provider selected. Go to Settings to add one.";
+"error.text_too_long" = "Text exceeds maximum length (100,000 characters).";
 "error.provider_not_found" = "Provider not found";
 "error.translation_failed" = "Translation failed";
 "error.qwen_cli_not_found" = "Qwen CLI not found. Install 'qwen-code' CLI and run '/auth' first, or use an API key.";
