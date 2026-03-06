@@ -173,20 +173,43 @@ final class HotkeyService {
     /// Read selected text from the focused element via Accessibility API
     /// Called from callback thread (not main) to capture before focus changes
     static func readSelectedText() -> String? {
-        guard AXIsProcessTrusted() else { return nil }
+        guard AXIsProcessTrusted() else {
+            AppLogger.shared.info("Hotkey", "AX: not trusted")
+            return nil
+        }
 
         let systemWide = AXUIElementCreateSystemWide()
 
         var focusedApp: AnyObject?
-        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success else { return nil }
+        let appResult = AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp)
+        guard appResult == .success else {
+            AppLogger.shared.info("Hotkey", "AX: focusedApp failed (\(appResult.rawValue))")
+            return nil
+        }
 
         var focusedElement: AnyObject?
-        guard AXUIElementCopyAttributeValue(focusedApp as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &focusedElement) == .success else { return nil }
+        let elemResult = AXUIElementCopyAttributeValue(focusedApp as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
+        guard elemResult == .success else {
+            AppLogger.shared.info("Hotkey", "AX: focusedElement failed (\(elemResult.rawValue))")
+            return nil
+        }
+
+        // Log the role of the focused element for debugging
+        var roleValue: AnyObject?
+        AXUIElementCopyAttributeValue(focusedElement as! AXUIElement, kAXRoleAttribute as CFString, &roleValue)
+        let role = roleValue as? String ?? "unknown"
 
         var selectedText: AnyObject?
-        guard AXUIElementCopyAttributeValue(focusedElement as! AXUIElement, kAXSelectedTextAttribute as CFString, &selectedText) == .success else { return nil }
+        let textResult = AXUIElementCopyAttributeValue(focusedElement as! AXUIElement, kAXSelectedTextAttribute as CFString, &selectedText)
+        guard textResult == .success else {
+            AppLogger.shared.info("Hotkey", "AX: selectedText failed (\(textResult.rawValue)), role=\(role)")
+            return nil
+        }
 
         let text = selectedText as? String
+        if text?.isEmpty == true {
+            AppLogger.shared.info("Hotkey", "AX: selectedText is empty, role=\(role)")
+        }
         return (text?.isEmpty == false) ? text : nil
     }
 }
