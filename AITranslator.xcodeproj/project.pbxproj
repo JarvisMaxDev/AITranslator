@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		241CEA15558392B8E64B53CA /* TranslatorViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132A987A14FB371A17A894D6 /* TranslatorViewModelTests.swift */; };
 		3848751BC558022596D4F3AB /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220A2D33BE8B6110A90F23FB /* HotkeyRecorderView.swift */; };
 		3B14EDF6124F59357F55AA24 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 70DB81D2CFA95B4BE5EB22EE /* Localizable.strings */; };
 		40C02F386ECDB4CFA44ACAF5 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */; };
@@ -19,6 +20,7 @@
 		651CD65A468036F7D42DE965 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061F7AC4FC6771CB3745DDEE /* AppDelegate.swift */; };
 		6607FAD790BE1009A69922AF /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */; };
 		68C35F5F3A52FF8F29CAA73D /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175B1FD3F69D8F7B30C4485C /* Constants.swift */; };
+		6E63525434CAF904C14BCCA2 /* LanguageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61F263DC2BF54BAA0C6E8490 /* LanguageTests.swift */; };
 		714E180787C93D06EF1A4A54 /* GeminiProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DBD829436296526AE36F9A0 /* GeminiProvider.swift */; };
 		7DC0523CF12BA962232218B4 /* QwenProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FBE33C2478CB7650365239A /* QwenProvider.swift */; };
 		8698CCE9D289A0643E65080E /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10D08440D68C9B39710E5D /* AIProvider.swift */; };
@@ -31,6 +33,7 @@
 		B0225AF9796940D1936FF676 /* AnthropicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB91F217857DC697004B034 /* AnthropicProvider.swift */; };
 		B0F31D50BE23A274DD32F5CC /* OpenAIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A49CF88EA73A630EA59566AC /* OpenAIProvider.swift */; };
 		D2B14BD6377370F347812BC8 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79DEAC48A94A23215D8AD940 /* SettingsViewModel.swift */; };
+		DC11D76D61915F34C90FFBA3 /* ConstantsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FDD2F5F836D4FCEC695BA2D /* ConstantsTests.swift */; };
 		E93005480CBE8E46CAE1D148 /* Translation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD147362A8A851D3B7EDE514 /* Translation.swift */; };
 		F0A11E29AD3846FC213DDAC2 /* TranslatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73016844C79CDDDF58BD8B3F /* TranslatorViewModel.swift */; };
 		F1DD709C42EFD236E926217C /* TranslationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14885D5F11B7413D17510A9 /* TranslationService.swift */; };
@@ -39,11 +42,22 @@
 		FC27C2FD89E80D6782B93869 /* LocalCallbackServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24C12507A3E2B0B129ADB8E0 /* LocalCallbackServer.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		47AD767EE75349CD3F7E56AC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 03DDE49078E8FDA630B52948 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A31873D6C09E496A52401B1;
+			remoteInfo = AITranslator;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		05086FBDB0F14A6476971AB9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		061F7AC4FC6771CB3745DDEE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		09CAAD8D8EE1A6A5091416CA /* TranslatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslatorView.swift; sourceTree = "<group>"; };
 		0B10D08440D68C9B39710E5D /* AIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProvider.swift; sourceTree = "<group>"; };
+		132A987A14FB371A17A894D6 /* TranslatorViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslatorViewModelTests.swift; sourceTree = "<group>"; };
 		1346DCDAF2A1E41C377366C3 /* LanguageSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageSelectorView.swift; sourceTree = "<group>"; };
 		1714D57A93A8012819835994 /* AITranslator.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AITranslator.entitlements; sourceTree = "<group>"; };
 		175B1FD3F69D8F7B30C4485C /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
@@ -55,6 +69,8 @@
 		4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
 		4DBD829436296526AE36F9A0 /* GeminiProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiProvider.swift; sourceTree = "<group>"; };
 		4FBE33C2478CB7650365239A /* QwenProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QwenProvider.swift; sourceTree = "<group>"; };
+		4FDD2F5F836D4FCEC695BA2D /* ConstantsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConstantsTests.swift; sourceTree = "<group>"; };
+		61F263DC2BF54BAA0C6E8490 /* LanguageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageTests.swift; sourceTree = "<group>"; };
 		627D26851CCFC69E3D8C1075 /* TranslationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPanel.swift; sourceTree = "<group>"; };
 		73016844C79CDDDF58BD8B3F /* TranslatorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslatorViewModel.swift; sourceTree = "<group>"; };
 		770CB59405077527397A4135 /* ConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleView.swift; sourceTree = "<group>"; };
@@ -67,6 +83,7 @@
 		A1B205FD44A746E0B21AFC4A /* Language.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Language.swift; sourceTree = "<group>"; };
 		A49CF88EA73A630EA59566AC /* OpenAIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIProvider.swift; sourceTree = "<group>"; };
 		AB83B26766FDA602C3289053 /* AITranslatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITranslatorApp.swift; sourceTree = "<group>"; };
+		AF01EF4BD0B974393B8C35F0 /* AITranslatorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AITranslatorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B555EE2B08A08539440FAB28 /* ModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelService.swift; sourceTree = "<group>"; };
 		B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		C2EF75F340398B77F6B9AB5D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -101,6 +118,7 @@
 			isa = PBXGroup;
 			children = (
 				80314A224DDC977C434E6A83 /* AITranslator.app */,
+				AF01EF4BD0B974393B8C35F0 /* AITranslatorTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -197,6 +215,7 @@
 			isa = PBXGroup;
 			children = (
 				F719D79F7C1CB3A06D207795 /* AITranslator */,
+				FDF05DDFB7373D8519BEF50C /* AITranslatorTests */,
 				264EFDAD9592FA01BD6506DB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -236,6 +255,16 @@
 			path = AITranslator;
 			sourceTree = "<group>";
 		};
+		FDF05DDFB7373D8519BEF50C /* AITranslatorTests */ = {
+			isa = PBXGroup;
+			children = (
+				4FDD2F5F836D4FCEC695BA2D /* ConstantsTests.swift */,
+				61F263DC2BF54BAA0C6E8490 /* LanguageTests.swift */,
+				132A987A14FB371A17A894D6 /* TranslatorViewModelTests.swift */,
+			);
+			path = AITranslatorTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -256,6 +285,24 @@
 			productName = AITranslator;
 			productReference = 80314A224DDC977C434E6A83 /* AITranslator.app */;
 			productType = "com.apple.product-type.application";
+		};
+		B95798B06C92A8524F25BB09 /* AITranslatorTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BEF3350951DF054896C3C3D5 /* Build configuration list for PBXNativeTarget "AITranslatorTests" */;
+			buildPhases = (
+				C45EA0501D39C1D78F7DB892 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9FA2BC7210013CEFF95B0B9B /* PBXTargetDependency */,
+			);
+			name = AITranslatorTests;
+			packageProductDependencies = (
+			);
+			productName = AITranslatorTests;
+			productReference = AF01EF4BD0B974393B8C35F0 /* AITranslatorTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -288,6 +335,7 @@
 			projectRoot = "";
 			targets = (
 				7A31873D6C09E496A52401B1 /* AITranslator */,
+				B95798B06C92A8524F25BB09 /* AITranslatorTests */,
 			);
 		};
 /* End PBXProject section */
@@ -305,6 +353,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		C45EA0501D39C1D78F7DB892 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DC11D76D61915F34C90FFBA3 /* ConstantsTests.swift in Sources */,
+				6E63525434CAF904C14BCCA2 /* LanguageTests.swift in Sources */,
+				241CEA15558392B8E64B53CA /* TranslatorViewModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E53287299C741DC99B580DEE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -341,6 +399,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9FA2BC7210013CEFF95B0B9B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A31873D6C09E496A52401B1 /* AITranslator */;
+			targetProxy = 47AD767EE75349CD3F7E56AC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		70DB81D2CFA95B4BE5EB22EE /* Localizable.strings */ = {
@@ -455,6 +521,40 @@
 			};
 			name = Release;
 		};
+		A8E584ACF831DCD5F313102A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.aitranslator.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AI Translator.app/Contents/MacOS/AI Translator";
+			};
+			name = Release;
+		};
+		C03231206125A7ACDA01C9F7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.aitranslator.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AI Translator.app/Contents/MacOS/AI Translator";
+			};
+			name = Debug;
+		};
 		EB4567A26DCC81397BAE019B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -537,6 +637,15 @@
 			buildConfigurations = (
 				EB4567A26DCC81397BAE019B /* Debug */,
 				7079A17C33356123589E16C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BEF3350951DF054896C3C3D5 /* Build configuration list for PBXNativeTarget "AITranslatorTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C03231206125A7ACDA01C9F7 /* Debug */,
+				A8E584ACF831DCD5F313102A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

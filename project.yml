@@ -34,3 +34,17 @@ targets:
       path: AITranslator/Resources/AITranslator.entitlements
       properties:
         com.apple.security.app-sandbox: false
+
+  AITranslatorTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: AITranslatorTests
+    dependencies:
+      - target: AITranslator
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aitranslator.tests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/AI Translator.app/Contents/MacOS/AI Translator"
+        BUNDLE_LOADER: "$(TEST_HOST)"
