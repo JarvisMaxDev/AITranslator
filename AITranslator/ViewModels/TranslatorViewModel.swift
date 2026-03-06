@@ -130,7 +130,16 @@ final class TranslatorViewModel: ObservableObject {
 
             if sourceLanguage.code == "auto" {
                 if let detectedName = detectedLang {
-                    detectedLanguage = Language(code: "auto", name: detectedName, localizedName: detectedName, flag: "✨")
+                    // Match LLM-returned language name to a real Language with proper ISO code
+                    if let matched = LanguageList.all.first(where: {
+                        $0.name.lowercased() == detectedName.lowercased() ||
+                        $0.localizedName.lowercased() == detectedName.lowercased()
+                    }) {
+                        detectedLanguage = matched
+                    } else {
+                        // Fallback: use NLLanguageRecognizer on source text for reliable code
+                        detectedLanguage = detectLanguage(from: sourceText)
+                    }
                 }
             } else {
                 detectedLanguage = nil
