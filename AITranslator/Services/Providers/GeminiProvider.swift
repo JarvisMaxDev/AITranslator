@@ -62,7 +62,7 @@ final class GeminiProvider: AIProvider {
 
         let systemPrompt = buildSystemPrompt(request: request)
         let body: [String: Any] = [
-            "model": "models/\(config.model)",
+            "model": "\(config.model)",
             "contents": [["role": "user", "parts": [["text": request.sourceText]]]],
             "systemInstruction": ["parts": [["text": systemPrompt]]],
             "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]
@@ -178,7 +178,7 @@ final class GeminiProvider: AIProvider {
 
         let systemPrompt = buildSystemPrompt(request: request)
         let body: [String: Any] = [
-            "model": "models/\(config.model)",
+            "model": "\(config.model)",
             "contents": [["role": "user", "parts": [["text": request.sourceText]]]],
             "systemInstruction": ["parts": [["text": systemPrompt]]],
             "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]
@@ -194,7 +194,10 @@ final class GeminiProvider: AIProvider {
             throw AIProviderError.tokenExpired
         }
         guard httpResponse.statusCode == 200 else {
-            throw AIProviderError.apiError("Gemini stream error (\(httpResponse.statusCode))")
+            var errorBody = ""
+            for try await line in bytes.lines { errorBody += line + "\n" }
+            AppLogger.error("Gemini", "Stream error (\(httpResponse.statusCode))", details: errorBody)
+            throw AIProviderError.apiError("Gemini stream error (\(httpResponse.statusCode)): \(errorBody)")
         }
 
         for try await line in bytes.lines {
