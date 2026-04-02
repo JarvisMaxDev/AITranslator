@@ -401,9 +401,8 @@ final class OAuthService: ObservableObject {
     private let geminiAuthURL = "https://accounts.google.com/o/oauth2/v2/auth"
     private let geminiTokenURL = "https://oauth2.googleapis.com/token"
     // gemini-cli public OAuth credentials (installed app — client_secret is not a secret per Google OAuth2 spec)
-    private let geminiClientId = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j"
-        + ".apps.googleusercontent.com"
-    private let geminiClientSecret = "GOCSPX-" + "4uHgMPm-1o7Sk-geV6Cu5clXFsxl"
+    private let geminiClientId = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
+    private let geminiClientSecret = "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"
     private let geminiScopes = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
 
     func startGeminiOAuth(providerId: String) async -> Bool {
