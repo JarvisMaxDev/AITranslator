@@ -74,42 +74,6 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Available models for selection (id, displayName)
-    var availableModels: [(id: String, name: String)] {
-        switch self {
-        case .qwen:
-            return [
-                ("coder-model", "Qwen Coder (OAuth)"),
-                ("qwen-plus", "Qwen Plus"),
-                ("qwen-turbo", "Qwen Turbo"),
-                ("qwen-max", "Qwen Max"),
-            ]
-        case .anthropic:
-            return [
-                ("claude-sonnet-4-20250514", "Sonnet 4"),
-                ("claude-haiku-4-5-20251001", "Haiku 4.5 · Fast"),
-                ("claude-sonnet-4-5-20250929", "Sonnet 4.5 · Balanced"),
-                ("claude-4-opus-20250514", "Opus 4"),
-                ("claude-opus-4-5-20251101", "Opus 4.5 · Best"),
-            ]
-        case .openai:
-            return [
-                ("gpt-4o", "GPT-4o"),
-                ("gpt-4o-mini", "GPT-4o Mini · Fast"),
-                ("gpt-4.1", "GPT-4.1"),
-                ("gpt-4.1-mini", "GPT-4.1 Mini"),
-                ("gpt-4.1-nano", "GPT-4.1 Nano · Cheapest"),
-                ("o4-mini", "o4 Mini · Reasoning"),
-            ]
-        case .gemini:
-            return [
-                ("gemini-2.5-flash", "Gemini 2.5 Flash"),
-                ("gemini-2.5-pro", "Gemini 2.5 Pro"),
-                ("gemini-2.0-flash", "Gemini 2.0 Flash"),
-                ("gemini-2.0-flash-lite", "Gemini 2.0 Flash-Lite · Fast"),
-            ]
-        }
-    }
 }
 
 /// Configuration for an AI provider instance

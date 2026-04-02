@@ -26,17 +26,8 @@ final class SettingsViewModel: ObservableObject {
         let oauthTokens = keychain.getOAuthTokens(forProvider: id)
         let apiKey = keychain.getAPIKey(forProvider: id)
 
-        // Providers with dynamic model lists need auth first
-        switch config.type {
-        case .openai, .anthropic:
-            guard oauthTokens != nil || apiKey != nil else {
-                // Not authenticated yet — no models to show
-                fetchedModels[id] = []
-                return
-            }
-        case .qwen, .gemini:
-            // These use hardcoded lists — no API needed
-            fetchedModels[id] = config.type.availableModels
+        guard oauthTokens != nil || apiKey != nil else {
+            fetchedModels[id] = []
             return
         }
 
@@ -57,26 +48,32 @@ final class SettingsViewModel: ObservableObject {
                 )
                 fetchedModels[id] = models
                 AppLogger.info("Models", "Loaded \(models.count) OpenAI models")
-            case .qwen, .gemini:
-                break // handled above
+            case .qwen:
+                if let tokens = oauthTokens {
+                    let models = await ModelService.shared.fetchQwenModels(
+                        token: tokens.accessToken, providerId: config.id)
+                    fetchedModels[id] = models
+                    AppLogger.info("Models", "Loaded \(models.count) Qwen models")
+                }
+            case .gemini:
+                if let tokens = oauthTokens {
+                    let models = await ModelService.shared.fetchGeminiModels(
+                        token: tokens.accessToken, providerId: config.id)
+                    fetchedModels[id] = models
+                    AppLogger.info("Models", "Loaded \(models.count) Gemini models")
+                } else if let apiKey = apiKey {
+                    let models = await ModelService.shared.fetchGeminiModels(
+                        token: apiKey, providerId: config.id)
+                    fetchedModels[id] = models
+                    AppLogger.info("Models", "Loaded \(models.count) Gemini models")
+                }
             }
         }
     }
 
     /// Get models for a provider (fetched dynamically or hardcoded for some providers)
     func modelsForProvider(_ id: String) -> [(id: String, name: String)] {
-        if let fetched = fetchedModels[id] {
-            return fetched
-        }
-        // Only use hardcoded for providers without dynamic model API
-        guard let config = providerConfigs.first(where: { $0.id == id }) else { return [] }
-        switch config.type {
-        case .qwen, .gemini:
-            return config.type.availableModels
-        case .openai, .anthropic:
-            // Dynamic models — empty until authenticated and fetched
-            return []
-        }
+        return fetchedModels[id] ?? []
     }
 
     // MARK: - Provider Management
@@ -85,15 +82,6 @@ final class SettingsViewModel: ObservableObject {
     func addProvider(type: ProviderType) {
         var config = ProviderConfig(type: type)
         config.isAuthenticated = false
-
-        // Try importing existing CLI credentials automatically
-        if type == .qwen && oauthService.importQwenCLICredentials(forProvider: config.id) {
-            config.isAuthenticated = true
-            config.authMethod = .oauth
-        } else if type == .gemini && oauthService.importGeminiCLICredentials(forProvider: config.id) {
-            config.isAuthenticated = true
-            config.authMethod = .oauth
-        }
 
         providerConfigs.append(config)
 
@@ -143,13 +131,8 @@ final class SettingsViewModel: ObservableObject {
 
             switch config.type {
             case .qwen:
-                // Try importing existing Qwen CLI credentials first
-                if oauthService.importQwenCLICredentials(forProvider: id) {
-                    success = true
-                } else {
-                    success = await oauthService.startQwenOAuth(providerId: id)
-                    authUserCode = oauthService.userCode
-                }
+                success = await oauthService.startQwenOAuth(providerId: id)
+                authUserCode = oauthService.userCode
             case .anthropic:
                 success = await oauthService.startAnthropicOAuth(providerId: id)
             case .openai:
@@ -192,19 +175,11 @@ final class SettingsViewModel: ObservableObject {
     }
 
     /// Mark provider as disconnected (called when token refresh fails)
-    /// Auto-switches to another authenticated provider if available
     func handleTokenExpired(providerId: String) {
         keychain.deleteCredentials(forProvider: providerId)
         if let idx = providerConfigs.firstIndex(where: { $0.id == providerId }) {
             providerConfigs[idx].isAuthenticated = false
-        }
-        // Auto-fallback to first authenticated provider
-        if selectedProviderId == providerId {
-            if let fallback = providerConfigs.first(where: { $0.isAuthenticated }) {
-                selectedProviderId = fallback.id
-                UserDefaults.standard.set(fallback.id, forKey: Constants.UserDefaultsKeys.selectedProviderId)
-                AppLogger.info("Settings", "Auto-switched to \(fallback.name) after token expiry")
-            }
+            saveConfigs()
         }
     }
 

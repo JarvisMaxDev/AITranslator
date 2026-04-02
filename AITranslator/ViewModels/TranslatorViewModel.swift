@@ -112,6 +112,12 @@ final class TranslatorViewModel: ObservableObject {
             return
         }
 
+        // If provider is not authenticated, start OAuth automatically
+        if !translationService.isProviderAuthenticated(selectedId) {
+            settingsViewModel.startOAuth(forProvider: selectedId)
+            return
+        }
+
         // Re-setup providers in case config changed
         for config in settingsViewModel.providerConfigs where config.isEnabled {
             translationService.setupProvider(from: config)
@@ -168,6 +174,7 @@ final class TranslatorViewModel: ObservableObject {
         } catch let providerError as AIProviderError {
             if case .tokenExpired = providerError, let selectedId = settingsViewModel.selectedProviderId {
                 settingsViewModel.handleTokenExpired(providerId: selectedId)
+                settingsViewModel.startOAuth(forProvider: selectedId)
             }
             self.error = providerError.errorDescription
             AppLogger.shared.error("Translation",

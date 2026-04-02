@@ -62,32 +62,10 @@ final class OAuthService: ObservableObject {
             // Step 5: Save tokens to Keychain
             try keychain.saveOAuthTokens(tokens, forProvider: providerId)
 
-            // Also cache to ~/.qwen/oauth_creds.json for compatibility with Qwen CLI
-            cacheCredentialsToQwenDir(tokens)
-
             isAuthenticating = false
             userCode = nil
             verificationURL = nil
             return true
-        } catch let existing as QwenExistingTokens {
-            // Found existing Qwen CLI credentials during fallback
-            let tokens = OAuthTokens(
-                accessToken: existing.accessToken,
-                refreshToken: existing.refreshToken,
-                expiresAt: existing.expiresAt,
-                tokenType: "Bearer"
-            )
-            do {
-                try keychain.saveOAuthTokens(tokens, forProvider: providerId)
-                isAuthenticating = false
-                userCode = nil
-                verificationURL = nil
-                return true
-            } catch {
-                authError = "Failed to save tokens: \(error.localizedDescription)"
-                isAuthenticating = false
-                return false
-            }
         } catch {
             authError = error.localizedDescription
             isAuthenticating = false
@@ -409,13 +387,6 @@ final class OAuthService: ObservableObject {
         isAuthenticating = true
         authError = nil
 
-        // Try importing existing gemini-cli credentials first
-        if importGeminiCLICredentials(forProvider: providerId) {
-            AppLogger.info("OAuth", "Gemini: imported existing CLI credentials")
-            isAuthenticating = false
-            return true
-        }
-
         do {
             let callbackServer = LocalCallbackServer()
             let port = try await callbackServer.start()
@@ -503,7 +474,6 @@ final class OAuthService: ObservableObject {
             )
 
             try keychain.saveOAuthTokens(tokens, forProvider: providerId)
-            cacheCredentialsToGeminiDir(tokens)
             AppLogger.success("OAuth", "Gemini OAuth complete — tokens saved")
             isAuthenticating = false
             return true
@@ -555,74 +525,8 @@ final class OAuthService: ObservableObject {
         )
 
         try keychain.saveOAuthTokens(newTokens, forProvider: providerId)
-        cacheCredentialsToGeminiDir(newTokens)
         AppLogger.success("OAuth", "Gemini token refreshed successfully")
         return newTokens
-    }
-
-    func importGeminiCLICredentials(forProvider providerId: String) -> Bool {
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let paths = [
-            homeDir.appendingPathComponent(".gemini/oauth_creds.json"),
-            homeDir.appendingPathComponent(".gemini/oauth.json")
-        ]
-
-        for path in paths {
-            guard FileManager.default.fileExists(atPath: path.path),
-                  let data = try? Data(contentsOf: path),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let accessToken = json["access_token"] as? String else {
-                continue
-            }
-
-            // expiry_date is in milliseconds (as in gemini-cli)
-            let expiresAt: Date?
-            if let expiryMs = json["expiry_date"] as? TimeInterval {
-                expiresAt = Date(timeIntervalSince1970: expiryMs / 1000.0)
-            } else if let expiryS = json["expires_at"] as? TimeInterval {
-                expiresAt = Date(timeIntervalSince1970: expiryS)
-            } else {
-                expiresAt = nil
-            }
-
-            let tokens = OAuthTokens(
-                accessToken: accessToken,
-                refreshToken: json["refresh_token"] as? String,
-                expiresAt: expiresAt,
-                tokenType: json["token_type"] as? String ?? "Bearer"
-            )
-
-            do {
-                try keychain.saveOAuthTokens(tokens, forProvider: providerId)
-                return true
-            } catch {
-                continue
-            }
-        }
-
-        return false
-    }
-
-    private func cacheCredentialsToGeminiDir(_ tokens: OAuthTokens) {
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let geminiDir = homeDir.appendingPathComponent(".gemini")
-        let credsPath = geminiDir.appendingPathComponent("oauth_creds.json")
-
-        do {
-            try FileManager.default.createDirectory(at: geminiDir, withIntermediateDirectories: true)
-            var json: [String: Any] = [
-                "access_token": tokens.accessToken,
-                "token_type": tokens.tokenType ?? "Bearer"
-            ]
-            if let refreshToken = tokens.refreshToken { json["refresh_token"] = refreshToken }
-            if let expiresAt = tokens.expiresAt {
-                json["expiry_date"] = expiresAt.timeIntervalSince1970 * 1000
-            }
-            let data = try JSONSerialization.data(withJSONObject: json, options: .prettyPrinted)
-            try data.write(to: credsPath)
-        } catch {
-            AppLogger.error("OAuth", "Failed to cache Gemini credentials", details: error.localizedDescription)
-        }
     }
 
     // MARK: - API Key (Fallback)
@@ -1008,79 +912,6 @@ final class OAuthService: ObservableObject {
         }.joined(separator: "&")
     }
 
-    // MARK: - Import / Cache from Qwen CLI
-
-    /// Try to import existing credentials from Qwen CLI (~/.qwen/oauth_creds.json)
-    func importQwenCLICredentials(forProvider providerId: String) -> Bool {
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let paths = [
-            homeDir.appendingPathComponent(".qwen/oauth_creds.json"),
-            homeDir.appendingPathComponent(".qwen/oauth.json")
-        ]
-
-        for path in paths {
-            guard FileManager.default.fileExists(atPath: path.path),
-                  let data = try? Data(contentsOf: path),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let accessToken = json["access_token"] as? String else {
-                continue
-            }
-
-            let tokens = OAuthTokens(
-                accessToken: accessToken,
-                refreshToken: json["refresh_token"] as? String,
-                expiresAt: (json["expiry_date"] as? TimeInterval).map { Date(timeIntervalSince1970: $0 / 1000.0) }
-                    ?? (json["expires_at"] as? TimeInterval).map { Date(timeIntervalSince1970: $0) },
-                tokenType: json["token_type"] as? String ?? "Bearer",
-                resourceURL: json["resource_url"] as? String
-            )
-
-            do {
-                try keychain.saveOAuthTokens(tokens, forProvider: providerId)
-                return true
-            } catch {
-                continue
-            }
-        }
-
-        return false
-    }
-
-    /// Cache tokens to ~/.qwen/oauth_creds.json for compatibility with Qwen CLI
-    private func cacheCredentialsToQwenDir(_ tokens: OAuthTokens) {
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let qwenDir = homeDir.appendingPathComponent(".qwen")
-        let credsPath = qwenDir.appendingPathComponent("oauth_creds.json")
-
-        do {
-            try FileManager.default.createDirectory(at: qwenDir, withIntermediateDirectories: true)
-
-            var json: [String: Any] = [
-                "access_token": tokens.accessToken,
-                "token_type": tokens.tokenType ?? "Bearer"
-            ]
-            if let refreshToken = tokens.refreshToken {
-                json["refresh_token"] = refreshToken
-            }
-            if let expiresAt = tokens.expiresAt {
-                json["expiry_date"] = expiresAt.timeIntervalSince1970 * 1000 // milliseconds
-            }
-
-            let data = try JSONSerialization.data(withJSONObject: json, options: .prettyPrinted)
-            try data.write(to: credsPath)
-        } catch {
-            // Non-critical — just log
-            print("Failed to cache Qwen credentials: \(error)")
-        }
-    }
-}
-
-// MARK: - Error Types
-
-struct QwenExistingTokens: Error {
-    let accessToken: String
-    let refreshToken: String?
-    let expiresAt: Date?
 }
 
 enum OAuthError: LocalizedError {

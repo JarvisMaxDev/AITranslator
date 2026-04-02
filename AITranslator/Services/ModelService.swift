@@ -151,4 +151,121 @@ final class ModelService {
             return []
         }
     }
+
+    // MARK: - Gemini models
+
+    /// Fetch available Gemini models via Google AI API
+    func fetchGeminiModels(token: String, providerId: String? = nil) async -> [(id: String, name: String)] {
+        let result = await doFetchGeminiModels(token: token)
+        if !result.isEmpty { return result }
+
+        if let providerId = providerId {
+            do {
+                AppLogger.info("Models", "Gemini token may be expired, refreshing...")
+                let newTokens = try await OAuthService.shared.refreshGeminiToken(forProvider: providerId)
+                AppLogger.success("Models", "Gemini token refreshed, retrying models fetch")
+                return await doFetchGeminiModels(token: newTokens.accessToken)
+            } catch {
+                AppLogger.error("Models", "Gemini token refresh failed", details: error.localizedDescription)
+            }
+        }
+        return []
+    }
+
+    private func doFetchGeminiModels(token: String) async -> [(id: String, name: String)] {
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models") else { return [] }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 10
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                AppLogger.error("Models", "Gemini models API error", details: body)
+                return []
+            }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let models = json["models"] as? [[String: Any]] else {
+                return []
+            }
+
+            return models.compactMap { model in
+                guard let name = model["name"] as? String,
+                      let displayName = model["displayName"] as? String,
+                      let methods = model["supportedGenerationMethods"] as? [String],
+                      methods.contains("generateContent") else { return nil }
+                // name is "models/gemini-2.5-flash" — extract model id
+                let id = name.hasPrefix("models/") ? String(name.dropFirst(7)) : name
+                return (id: id, name: displayName)
+            }
+        } catch {
+            AppLogger.error("Models", "Failed to fetch Gemini models", details: error.localizedDescription)
+            return []
+        }
+    }
+
+    // MARK: - Qwen models
+
+    /// Fetch available Qwen models via Qwen API
+    func fetchQwenModels(token: String, providerId: String? = nil) async -> [(id: String, name: String)] {
+        let result = await doFetchQwenModels(token: token)
+        if !result.isEmpty { return result }
+
+        if let providerId = providerId {
+            do {
+                AppLogger.info("Models", "Qwen token may be expired, refreshing...")
+                let newTokens = try await OAuthService.shared.refreshQwenToken(forProvider: providerId)
+                AppLogger.success("Models", "Qwen token refreshed, retrying models fetch")
+                return await doFetchQwenModels(token: newTokens.accessToken)
+            } catch {
+                AppLogger.error("Models", "Qwen token refresh failed", details: error.localizedDescription)
+            }
+        }
+        return []
+    }
+
+    private func doFetchQwenModels(token: String) async -> [(id: String, name: String)] {
+        guard let url = URL(string: "https://chat.qwen.ai/api/models") else { return [] }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 10
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                AppLogger.error("Models", "Qwen models API error", details: body)
+                return []
+            }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let models = json["models"] as? [[String: Any]] else {
+                // Try alternative response format: {"data": [...]}
+                guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let models = json["data"] as? [[String: Any]] else {
+                    let body = String(data: data, encoding: .utf8) ?? ""
+                    AppLogger.error("Models", "Qwen models: unexpected format", details: body)
+                    return []
+                }
+                return models.compactMap { model in
+                    guard let id = model["id"] as? String else { return nil }
+                    let name = model["name"] as? String ?? id
+                    return (id: id, name: name)
+                }
+            }
+
+            return models.compactMap { model in
+                guard let slug = model["slug"] as? String ?? model["id"] as? String else { return nil }
+                let displayName = model["display_name"] as? String ?? model["name"] as? String ?? slug
+                return (id: slug, name: displayName)
+            }
+        } catch {
+            AppLogger.error("Models", "Failed to fetch Qwen models", details: error.localizedDescription)
+            return []
+        }
+    }
 }

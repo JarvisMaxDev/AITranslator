@@ -419,6 +419,12 @@ struct SettingsView: View {
                         settingsViewModel.fetchModels(forProvider: config.id)
                     }
 
+                    if config.isAuthenticated && settingsViewModel.modelsForProvider(config.id).isEmpty {
+                        Text(NSLocalizedString("settings.models_unavailable", comment: "Models unavailable"))
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                    }
+
                     Spacer()
 
                     // Actions
@@ -449,12 +455,14 @@ struct SettingsView: View {
                                     .foregroundStyle(.blue)
                                     .fixedSize(horizontal: true, vertical: false)
                             } else {
+                                let hasModels = !(settingsViewModel.modelsForProvider(config.id).isEmpty)
                                 Button(NSLocalizedString("settings.use", comment: "Use")) {
                                     draftSelectedProviderId = config.id
                                     hasChanges = true
                                 }
                                 .buttonStyle(.bordered)
                                 .fixedSize()
+                                .disabled(!hasModels)
                             }
 
                             Button(NSLocalizedString("settings.disconnect", comment: "Disconnect")) {
