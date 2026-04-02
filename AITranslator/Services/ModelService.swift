@@ -172,39 +172,14 @@ final class ModelService {
         return []
     }
 
+    /// Google does not expose a models list API for cloudcode-pa.
+    /// gemini-cli also hardcodes models. Return known models.
     private func doFetchGeminiModels(token: String) async -> [(id: String, name: String)] {
-        guard let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal/models") else { return [] }
-
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 10
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                let body = String(data: data, encoding: .utf8) ?? ""
-                AppLogger.error("Models", "Gemini models API error", details: body)
-                return []
-            }
-
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let models = json["models"] as? [[String: Any]] else {
-                return []
-            }
-
-            return models.compactMap { model in
-                guard let name = model["name"] as? String,
-                      let displayName = model["displayName"] as? String,
-                      let methods = model["supportedGenerationMethods"] as? [String],
-                      methods.contains("generateContent") else { return nil }
-                // name is "models/gemini-2.5-flash" — extract model id
-                let id = name.hasPrefix("models/") ? String(name.dropFirst(7)) : name
-                return (id: id, name: displayName)
-            }
-        } catch {
-            AppLogger.error("Models", "Failed to fetch Gemini models", details: error.localizedDescription)
-            return []
-        }
+        return [
+            (id: "gemini-2.5-flash", name: "Gemini 2.5 Flash"),
+            (id: "gemini-2.5-pro", name: "Gemini 2.5 Pro"),
+            (id: "gemini-2.0-flash", name: "Gemini 2.0 Flash"),
+        ]
     }
 
     // MARK: - Qwen models
