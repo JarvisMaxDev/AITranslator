@@ -288,22 +288,27 @@ final class TranslatorViewModel: ObservableObject {
 
     /// Save language preferences to UserDefaults
     func saveLanguagePreferences() {
+        AppLogger.info("Prefs", "Saving: source=\(sourceLanguage.code), target=\(targetLanguage.code)")
         UserDefaults.standard.set(sourceLanguage.code, forKey: Constants.UserDefaultsKeys.sourceLanguageCode)
         UserDefaults.standard.set(targetLanguage.code, forKey: Constants.UserDefaultsKeys.targetLanguageCode)
     }
 
     private func restoreLanguagePreferences() {
-        if let code = UserDefaults.standard.string(forKey: Constants.UserDefaultsKeys.sourceLanguageCode) {
+        let savedSource = UserDefaults.standard.string(forKey: Constants.UserDefaultsKeys.sourceLanguageCode)
+        let savedTarget = UserDefaults.standard.string(forKey: Constants.UserDefaultsKeys.targetLanguageCode)
+        AppLogger.info("Prefs", "Restoring: saved source=\(savedSource ?? "nil"), target=\(savedTarget ?? "nil")")
+
+        if let code = savedSource {
             if code == "auto" {
                 sourceLanguage = .autoDetect
             } else if let lang = LanguageList.find(byCode: code) {
                 sourceLanguage = lang
             }
         }
-        if let code = UserDefaults.standard.string(forKey: Constants.UserDefaultsKeys.targetLanguageCode),
-           let lang = LanguageList.find(byCode: code) {
+        if let code = savedTarget, let lang = LanguageList.find(byCode: code) {
             targetLanguage = lang
         }
+        AppLogger.info("Prefs", "Restored: source=\(sourceLanguage.code), target=\(targetLanguage.code)")
     }
 
     // MARK: - TTS
