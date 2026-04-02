@@ -112,15 +112,15 @@ final class TranslatorViewModel: ObservableObject {
             return
         }
 
+        // Re-setup providers in case config changed
+        for config in settingsViewModel.providerConfigs where config.isEnabled {
+            translationService.setupProvider(from: config)
+        }
+
         // If provider is not authenticated, start OAuth automatically
         if !translationService.isProviderAuthenticated(selectedId) {
             settingsViewModel.startOAuth(forProvider: selectedId)
             return
-        }
-
-        // Re-setup providers in case config changed
-        for config in settingsViewModel.providerConfigs where config.isEnabled {
-            translationService.setupProvider(from: config)
         }
 
         isTranslating = true

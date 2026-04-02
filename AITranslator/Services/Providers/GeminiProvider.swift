@@ -53,7 +53,7 @@ final class GeminiProvider: AIProvider {
 
     private func translateWithOAuth(request: TranslationRequest, tokens: OAuthTokens) async throws -> TranslationResponse {
         let freshTokens = try await getFreshTokens()
-        let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal/models/\(config.model):generateContent")!
+        let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:generateContent")!
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -62,6 +62,7 @@ final class GeminiProvider: AIProvider {
 
         let systemPrompt = buildSystemPrompt(request: request)
         let body: [String: Any] = [
+            "model": "models/\(config.model)",
             "contents": [["role": "user", "parts": [["text": request.sourceText]]]],
             "systemInstruction": ["parts": [["text": systemPrompt]]],
             "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]
@@ -168,7 +169,7 @@ final class GeminiProvider: AIProvider {
 
     private func streamWithOAuth(request: TranslationRequest, continuation: AsyncThrowingStream<String, Error>.Continuation) async throws {
         let freshTokens = try await getFreshTokens()
-        let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal/models/\(config.model):streamGenerateContent?alt=sse")!
+        let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse")!
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -177,6 +178,7 @@ final class GeminiProvider: AIProvider {
 
         let systemPrompt = buildSystemPrompt(request: request)
         let body: [String: Any] = [
+            "model": "models/\(config.model)",
             "contents": [["role": "user", "parts": [["text": request.sourceText]]]],
             "systemInstruction": ["parts": [["text": systemPrompt]]],
             "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]

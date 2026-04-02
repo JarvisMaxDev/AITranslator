@@ -173,7 +173,7 @@ final class ModelService {
     }
 
     private func doFetchGeminiModels(token: String) async -> [(id: String, name: String)] {
-        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models") else { return [] }
+        guard let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal/models") else { return [] }
 
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
