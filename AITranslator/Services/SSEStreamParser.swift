@@ -59,6 +59,27 @@ enum SSEStreamParser {
         }
     }
 
+    // MARK: - Native Gemini format (cloudcode-pa.googleapis.com)
+
+    /// Parse a single SSE line from native Gemini streaming API.
+    /// Format: `data: {"candidates":[{"content":{"role":"model","parts":[{"text":"chunk"}]}}]}`
+    static func parseGeminiDelta(_ line: String) -> String? {
+        guard line.hasPrefix("data: ") else { return nil }
+        let jsonStr = String(line.dropFirst(6))
+        if jsonStr == "[DONE]" { return nil }
+
+        guard let data = jsonStr.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let candidates = json["candidates"] as? [[String: Any]],
+              let content = candidates.first?["content"] as? [String: Any],
+              let parts = content["parts"] as? [[String: Any]],
+              let text = parts.first?["text"] as? String,
+              !text.isEmpty else {
+            return nil
+        }
+        return text
+    }
+
     // MARK: - OpenAI Codex Responses API format
 
     /// Parse SSE from OpenAI Codex Responses API (chatgpt.com/backend-api).

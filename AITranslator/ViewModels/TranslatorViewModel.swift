@@ -98,6 +98,7 @@ final class TranslatorViewModel: ObservableObject {
 
     /// Perform translation with streaming
     func translate() async {
+        guard !isTranslating else { return }
         let text = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
@@ -164,6 +165,14 @@ final class TranslatorViewModel: ObservableObject {
             AppLogger.shared.success("Translation",
                 "Stream complete",
                 details: "Result: \(translatedText.prefix(200))\(translatedText.count > 200 ? "..." : "")")
+        } catch let providerError as AIProviderError {
+            if case .tokenExpired = providerError, let selectedId = settingsViewModel.selectedProviderId {
+                settingsViewModel.handleTokenExpired(providerId: selectedId)
+            }
+            self.error = providerError.errorDescription
+            AppLogger.shared.error("Translation",
+                "Stream error",
+                details: providerError.errorDescription ?? "unknown")
         } catch {
             self.error = error.localizedDescription
             AppLogger.shared.error("Translation",

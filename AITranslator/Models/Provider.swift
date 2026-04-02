@@ -42,7 +42,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .qwen: return "https://portal.qwen.ai/api/v1"
         case .anthropic: return "https://api.anthropic.com/v1"
         case .openai: return "https://api.openai.com/v1"
-        case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai"
+        case .gemini: return "https://cloudcode-pa.googleapis.com/v1internal"
         }
     }
 
@@ -70,7 +70,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .qwen: return true
         case .anthropic: return true
         case .openai: return true
-        case .gemini: return false
+        case .gemini: return true
         }
     }
 

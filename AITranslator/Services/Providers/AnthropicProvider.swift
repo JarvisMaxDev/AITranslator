@@ -41,6 +41,7 @@ final class AnthropicProvider: AIProvider {
                     AppLogger.success("Claude", "Token refreshed successfully")
                 } catch {
                     AppLogger.error("Claude", "Token refresh failed", details: String(describing: error))
+                    keychain.deleteCredentials(forProvider: config.id)
                     throw AIProviderError.tokenExpired
                 }
             }
@@ -133,6 +134,7 @@ final class AnthropicProvider: AIProvider {
                             do {
                                 tokens = try await OAuthService.shared.refreshClaudeToken(forProvider: self.config.id)
                             } catch {
+                                self.keychain.deleteCredentials(forProvider: self.config.id)
                                 throw AIProviderError.tokenExpired
                             }
                         }

@@ -114,6 +114,7 @@ final class QwenProvider: AIProvider {
                     AppLogger.success("Qwen", "Token refreshed successfully")
                 } catch {
                     AppLogger.error("Qwen", "Token refresh failed", details: String(describing: error))
+                    keychain.deleteCredentials(forProvider: config.id)
                     throw AIProviderError.tokenExpired
                 }
             }

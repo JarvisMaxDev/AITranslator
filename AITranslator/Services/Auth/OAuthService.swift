@@ -396,6 +396,236 @@ final class OAuthService: ObservableObject {
         }
     }
 
+    // MARK: - Gemini OAuth (Authorization Code + PKCE via localhost, gemini-cli flow)
+
+    private let geminiAuthURL = "https://accounts.google.com/o/oauth2/v2/auth"
+    private let geminiTokenURL = "https://oauth2.googleapis.com/token"
+    // gemini-cli public OAuth credentials (installed app — client_secret is not a secret per Google OAuth2 spec)
+    private let geminiClientId = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j"
+        + ".apps.googleusercontent.com"
+    private let geminiClientSecret = "GOCSPX-" + "4uHgMPm-1o7Sk-geV6Cu5clXFsxl"
+    private let geminiScopes = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
+
+    func startGeminiOAuth(providerId: String) async -> Bool {
+        isAuthenticating = true
+        authError = nil
+
+        // Try importing existing gemini-cli credentials first
+        if importGeminiCLICredentials(forProvider: providerId) {
+            AppLogger.info("OAuth", "Gemini: imported existing CLI credentials")
+            isAuthenticating = false
+            return true
+        }
+
+        do {
+            let callbackServer = LocalCallbackServer()
+            let port = try await callbackServer.start()
+            let redirectURI = "http://127.0.0.1:\(port)/oauth2callback"
+            let state = generateCodeVerifier()
+
+            var components = URLComponents(string: geminiAuthURL)!
+            components.queryItems = [
+                URLQueryItem(name: "client_id", value: geminiClientId),
+                URLQueryItem(name: "response_type", value: "code"),
+                URLQueryItem(name: "redirect_uri", value: redirectURI),
+                URLQueryItem(name: "scope", value: geminiScopes),
+                URLQueryItem(name: "access_type", value: "offline"),
+                URLQueryItem(name: "state", value: state),
+                URLQueryItem(name: "prompt", value: "consent")
+            ]
+
+            if let url = components.url {
+                NSWorkspace.shared.open(url)
+            }
+
+            let callbackResult = try await callbackServer.waitForCallback(timeoutSeconds: 120)
+            callbackServer.stop()
+
+            guard callbackResult.state == state else {
+                authError = "OAuth state mismatch"
+                isAuthenticating = false
+                return false
+            }
+
+            guard let code = callbackResult.code else {
+                authError = callbackResult.error ?? "No authorization code received"
+                isAuthenticating = false
+                return false
+            }
+
+            return await exchangeGeminiCode(code: code, redirectURI: redirectURI, providerId: providerId)
+
+        } catch {
+            authError = error.localizedDescription
+            isAuthenticating = false
+            return false
+        }
+    }
+
+    private func exchangeGeminiCode(code: String, redirectURI: String, providerId: String) async -> Bool {
+        guard let url = URL(string: geminiTokenURL) else {
+            authError = "Invalid token URL"
+            isAuthenticating = false
+            return false
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+
+        var components = URLComponents()
+        components.queryItems = [
+            URLQueryItem(name: "grant_type", value: "authorization_code"),
+            URLQueryItem(name: "code", value: code),
+            URLQueryItem(name: "redirect_uri", value: redirectURI),
+            URLQueryItem(name: "client_id", value: geminiClientId),
+            URLQueryItem(name: "client_secret", value: geminiClientSecret)
+        ]
+        request.httpBody = components.query?.data(using: .utf8)
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let accessToken = json["access_token"] as? String else {
+                let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
+                authError = "Token exchange failed: \(errorBody)"
+                isAuthenticating = false
+                return false
+            }
+
+            let expiresIn = json["expires_in"] as? TimeInterval ?? 3600
+            let tokens = OAuthTokens(
+                accessToken: accessToken,
+                refreshToken: json["refresh_token"] as? String,
+                expiresAt: Date().addingTimeInterval(expiresIn),
+                tokenType: json["token_type"] as? String ?? "Bearer"
+            )
+
+            try keychain.saveOAuthTokens(tokens, forProvider: providerId)
+            cacheCredentialsToGeminiDir(tokens)
+            AppLogger.success("OAuth", "Gemini OAuth complete — tokens saved")
+            isAuthenticating = false
+            return true
+        } catch {
+            authError = "Token exchange failed: \(error.localizedDescription)"
+            isAuthenticating = false
+            return false
+        }
+    }
+
+    func refreshGeminiToken(forProvider providerId: String) async throws -> OAuthTokens {
+        guard let tokens = keychain.getOAuthTokens(forProvider: providerId),
+              let refreshToken = tokens.refreshToken else {
+            throw AIProviderError.notAuthenticated
+        }
+
+        guard let url = URL(string: geminiTokenURL) else {
+            throw AIProviderError.apiError("Invalid token URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+
+        var components = URLComponents()
+        components.queryItems = [
+            URLQueryItem(name: "grant_type", value: "refresh_token"),
+            URLQueryItem(name: "refresh_token", value: refreshToken),
+            URLQueryItem(name: "client_id", value: geminiClientId),
+            URLQueryItem(name: "client_secret", value: geminiClientSecret)
+        ]
+        request.httpBody = components.query?.data(using: .utf8)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let accessToken = json["access_token"] as? String else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
+            throw AIProviderError.apiError("Gemini token refresh failed: \(errorBody)")
+        }
+
+        let expiresIn = json["expires_in"] as? TimeInterval ?? 3600
+        let newTokens = OAuthTokens(
+            accessToken: accessToken,
+            refreshToken: json["refresh_token"] as? String ?? refreshToken,
+            expiresAt: Date().addingTimeInterval(expiresIn),
+            tokenType: json["token_type"] as? String ?? "Bearer"
+        )
+
+        try keychain.saveOAuthTokens(newTokens, forProvider: providerId)
+        cacheCredentialsToGeminiDir(newTokens)
+        AppLogger.success("OAuth", "Gemini token refreshed successfully")
+        return newTokens
+    }
+
+    func importGeminiCLICredentials(forProvider providerId: String) -> Bool {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        let paths = [
+            homeDir.appendingPathComponent(".gemini/oauth_creds.json"),
+            homeDir.appendingPathComponent(".gemini/oauth.json")
+        ]
+
+        for path in paths {
+            guard FileManager.default.fileExists(atPath: path.path),
+                  let data = try? Data(contentsOf: path),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let accessToken = json["access_token"] as? String else {
+                continue
+            }
+
+            // expiry_date is in milliseconds (as in gemini-cli)
+            let expiresAt: Date?
+            if let expiryMs = json["expiry_date"] as? TimeInterval {
+                expiresAt = Date(timeIntervalSince1970: expiryMs / 1000.0)
+            } else if let expiryS = json["expires_at"] as? TimeInterval {
+                expiresAt = Date(timeIntervalSince1970: expiryS)
+            } else {
+                expiresAt = nil
+            }
+
+            let tokens = OAuthTokens(
+                accessToken: accessToken,
+                refreshToken: json["refresh_token"] as? String,
+                expiresAt: expiresAt,
+                tokenType: json["token_type"] as? String ?? "Bearer"
+            )
+
+            do {
+                try keychain.saveOAuthTokens(tokens, forProvider: providerId)
+                return true
+            } catch {
+                continue
+            }
+        }
+
+        return false
+    }
+
+    private func cacheCredentialsToGeminiDir(_ tokens: OAuthTokens) {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        let geminiDir = homeDir.appendingPathComponent(".gemini")
+        let credsPath = geminiDir.appendingPathComponent("oauth_creds.json")
+
+        do {
+            try FileManager.default.createDirectory(at: geminiDir, withIntermediateDirectories: true)
+            var json: [String: Any] = [
+                "access_token": tokens.accessToken,
+                "token_type": tokens.tokenType ?? "Bearer"
+            ]
+            if let refreshToken = tokens.refreshToken { json["refresh_token"] = refreshToken }
+            if let expiresAt = tokens.expiresAt {
+                json["expiry_date"] = expiresAt.timeIntervalSince1970 * 1000
+            }
+            let data = try JSONSerialization.data(withJSONObject: json, options: .prettyPrinted)
+            try data.write(to: credsPath)
+        } catch {
+            AppLogger.error("OAuth", "Failed to cache Gemini credentials", details: error.localizedDescription)
+        }
+    }
+
     // MARK: - API Key (Fallback)
 
     func saveAPIKey(_ key: String, forProvider providerId: String) throws {

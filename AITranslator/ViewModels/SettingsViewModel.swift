@@ -86,8 +86,11 @@ final class SettingsViewModel: ObservableObject {
         var config = ProviderConfig(type: type)
         config.isAuthenticated = false
 
-        // For Qwen, try importing existing CLI credentials automatically
+        // Try importing existing CLI credentials automatically
         if type == .qwen && oauthService.importQwenCLICredentials(forProvider: config.id) {
+            config.isAuthenticated = true
+            config.authMethod = .oauth
+        } else if type == .gemini && oauthService.importGeminiCLICredentials(forProvider: config.id) {
             config.isAuthenticated = true
             config.authMethod = .oauth
         }
@@ -152,8 +155,7 @@ final class SettingsViewModel: ObservableObject {
             case .openai:
                 success = await oauthService.startOpenAIOAuth(providerId: id)
             case .gemini:
-                // API key only — no OAuth flow needed
-                break
+                success = await oauthService.startGeminiOAuth(providerId: id)
             }
 
             if success {
@@ -186,6 +188,14 @@ final class SettingsViewModel: ObservableObject {
             }
         } catch {
             print("Failed to save API key: \(error)")
+        }
+    }
+
+    /// Mark provider as disconnected (called when token refresh fails)
+    func handleTokenExpired(providerId: String) {
+        keychain.deleteCredentials(forProvider: providerId)
+        if let idx = providerConfigs.firstIndex(where: { $0.id == providerId }) {
+            providerConfigs[idx].isAuthenticated = false
         }
     }
 
