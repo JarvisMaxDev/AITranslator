@@ -192,10 +192,19 @@ final class SettingsViewModel: ObservableObject {
     }
 
     /// Mark provider as disconnected (called when token refresh fails)
+    /// Auto-switches to another authenticated provider if available
     func handleTokenExpired(providerId: String) {
         keychain.deleteCredentials(forProvider: providerId)
         if let idx = providerConfigs.firstIndex(where: { $0.id == providerId }) {
             providerConfigs[idx].isAuthenticated = false
+        }
+        // Auto-fallback to first authenticated provider
+        if selectedProviderId == providerId {
+            if let fallback = providerConfigs.first(where: { $0.isAuthenticated }) {
+                selectedProviderId = fallback.id
+                UserDefaults.standard.set(fallback.id, forKey: Constants.UserDefaultsKeys.selectedProviderId)
+                AppLogger.info("Settings", "Auto-switched to \(fallback.name) after token expiry")
+            }
         }
     }
 
