@@ -62,10 +62,13 @@ final class GeminiProvider: AIProvider {
 
         let systemPrompt = buildSystemPrompt(request: request)
         let body: [String: Any] = [
-            "model": "\(config.model)",
-            "contents": [["role": "user", "parts": [["text": request.sourceText]]]],
-            "systemInstruction": ["parts": [["text": systemPrompt]]],
-            "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]
+            "model": config.model,
+            "user_prompt_id": UUID().uuidString,
+            "request": [
+                "contents": [["role": "user", "parts": [["text": request.sourceText]]]],
+                "systemInstruction": ["role": "user", "parts": [["text": systemPrompt]]],
+                "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]
+            ] as [String: Any]
         ]
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
         AppLogger.request("Gemini", "POST \(url.absoluteString)")
@@ -88,7 +91,8 @@ final class GeminiProvider: AIProvider {
 
     private func parseGeminiResponse(data: Data) throws -> TranslationResponse {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let candidates = json["candidates"] as? [[String: Any]],
+              let resp = json["response"] as? [String: Any],
+              let candidates = resp["candidates"] as? [[String: Any]],
               let first = candidates.first,
               let content = first["content"] as? [String: Any],
               let parts = content["parts"] as? [[String: Any]],
@@ -178,10 +182,13 @@ final class GeminiProvider: AIProvider {
 
         let systemPrompt = buildSystemPrompt(request: request)
         let body: [String: Any] = [
-            "model": "\(config.model)",
-            "contents": [["role": "user", "parts": [["text": request.sourceText]]]],
-            "systemInstruction": ["parts": [["text": systemPrompt]]],
-            "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]
+            "model": config.model,
+            "user_prompt_id": UUID().uuidString,
+            "request": [
+                "contents": [["role": "user", "parts": [["text": request.sourceText]]]],
+                "systemInstruction": ["role": "user", "parts": [["text": systemPrompt]]],
+                "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]
+            ] as [String: Any]
         ]
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
         AppLogger.request("Gemini", "POST stream \(url.absoluteString)")

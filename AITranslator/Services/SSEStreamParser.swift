@@ -61,16 +61,21 @@ enum SSEStreamParser {
 
     // MARK: - Native Gemini format (cloudcode-pa.googleapis.com)
 
-    /// Parse a single SSE line from native Gemini streaming API.
-    /// Format: `data: {"candidates":[{"content":{"role":"model","parts":[{"text":"chunk"}]}}]}`
+    /// Parse a single SSE line from cloudcode-pa Gemini streaming API.
+    /// Format: `data: {"response":{"candidates":[{"content":{"parts":[{"text":"chunk"}]}}]}}`
     static func parseGeminiDelta(_ line: String) -> String? {
         guard line.hasPrefix("data: ") else { return nil }
         let jsonStr = String(line.dropFirst(6))
         if jsonStr == "[DONE]" { return nil }
 
         guard let data = jsonStr.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let candidates = json["candidates"] as? [[String: Any]],
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+
+        // cloudcode-pa wraps response in "response" key
+        let resp = json["response"] as? [String: Any] ?? json
+        guard let candidates = resp["candidates"] as? [[String: Any]],
               let content = candidates.first?["content"] as? [String: Any],
               let parts = content["parts"] as? [[String: Any]],
               let text = parts.first?["text"] as? String,
