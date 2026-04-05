@@ -203,6 +203,25 @@ jobs:
             clean build \
             SYMROOT="$(pwd)/build"
 
+      - name: Re-sign embedded frameworks
+        if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
+        run: |
+          APP_PATH="build/Release/AI Translator.app"
+          IDENTITY="AITranslator Dev"
+          ENTITLEMENTS="AITranslator/Resources/AITranslator.entitlements"
+
+          # Re-sign all embedded frameworks with the same identity
+          find "$APP_PATH/Contents/Frameworks" -name "*.framework" -o -name "*.dylib" | while read fw; do
+            echo "Re-signing: $fw"
+            codesign --force --sign "$IDENTITY" --timestamp=none "$fw"
+          done
+
+          # Re-sign the main app with entitlements
+          codesign --force --sign "$IDENTITY" --entitlements "$ENTITLEMENTS" --timestamp=none "$APP_PATH"
+
+          # Verify
+          codesign --verify --deep --strict "$APP_PATH" && echo "✅ Code signature valid" || echo "⚠️ Signature check failed"
+
       - name: Verify version in app
         if: steps.version.outputs.should_release == 'true' && steps.create_tag.outputs.tag_created == 'true'
         run: |
