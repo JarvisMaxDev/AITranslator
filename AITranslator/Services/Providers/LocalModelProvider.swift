@@ -80,7 +80,7 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
             maxTokens: maxTokens
         )
 
-        let translatedText = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        let translatedText = Self.cleanModelOutput(result)
 
         AppLogger.response("LocalModel", "Translation complete",
             details: "Result: \(translatedText.prefix(200))\(translatedText.count > 200 ? "..." : "")")
@@ -98,6 +98,34 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
     }
 
     // MARK: - Private
+
+    /// Remove model-specific tags from output (think blocks, chat markers, etc.)
+    private static func cleanModelOutput(_ raw: String) -> String {
+        var text = raw
+
+        // Remove Qwen3 thinking blocks: <think>...</think>
+        while let thinkStart = text.range(of: "<think>"),
+              let thinkEnd = text.range(of: "</think>") {
+            if thinkEnd.upperBound <= text.endIndex {
+                text.removeSubrange(thinkStart.lowerBound..<thinkEnd.upperBound)
+            } else {
+                break
+            }
+        }
+
+        // Remove common special tokens that leak into output
+        let junkPatterns = [
+            "<|im_start|>", "<|im_end|>",
+            "<|endoftext|>", "<|end|>",
+            "<start_of_turn>", "<end_of_turn>",
+            "Translation:", "translation:",
+        ]
+        for pattern in junkPatterns {
+            text = text.replacingOccurrences(of: pattern, with: "")
+        }
+
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     private func buildSystemPrompt(request: TranslationRequest) -> String {
         let sourceLang = request.sourceLanguage.code == "auto"

@@ -93,7 +93,7 @@ actor LlamaInference {
         )
 
         // Tokenize
-        let tokens = try tokenize(prompt: prompt, vocab: vocab, addBos: false)
+        let tokens = try tokenize(prompt: prompt, vocab: vocab, addBos: true)
         AppLogger.info("LlamaInference", "Prompt tokenized", details: "\(tokens.count) tokens")
 
         // Clear memory (KV cache) so each call is independent
@@ -137,8 +137,11 @@ actor LlamaInference {
             let nextToken = llama_sampler_sample(samplerChain, context, -1)
             llama_sampler_accept(samplerChain, nextToken)
 
-            // Stop at EOS or end-of-turn
+            // Stop at EOS, end-of-turn, or any end-of-generation token
             if nextToken == eosToken || nextToken == eotToken || llama_vocab_is_eog(vocab, nextToken) { break }
+
+            // Skip control tokens (they shouldn't appear in output)
+            if llama_vocab_is_control(vocab, nextToken) { continue }
 
             // Convert token to bytes
             var tokenBytes = [CChar](repeating: 0, count: 32)
@@ -196,38 +199,16 @@ actor LlamaInference {
 
     // MARK: - Private
 
-    /// Build prompt using llama_chat_apply_template which auto-detects
-    /// the correct format from model metadata (Gemma, ChatML, Llama, etc.)
+    /// Build a plain instruction prompt.
+    /// Avoids model-specific chat templates (ChatML, Gemma start_of_turn, etc.)
+    /// since llama_chat_apply_template doesn't support all jinja templates.
+    /// A plain instruction works reliably across all instruction-tuned models.
     private func buildPromptFromTemplate(
         model: OpaquePointer,
         systemPrompt: String,
         userPrompt: String
     ) -> String {
-        let combinedUserMessage = "\(systemPrompt)\n\n\(userPrompt)"
-
-        // Build chat messages array
-        var messages: [llama_chat_message] = []
-
-        let userRole = "user".withCString { strdup($0)! }
-        let userContent = combinedUserMessage.withCString { strdup($0)! }
-        defer { free(userRole); free(userContent) }
-
-        messages.append(llama_chat_message(role: userRole, content: userContent))
-
-        // First call: determine buffer size needed (pass length=0)
-        let needed = llama_chat_apply_template(nil, &messages, messages.count, true, nil, 0)
-
-        guard needed > 0 else {
-            // Fallback: simple concatenation if template not recognized
-            AppLogger.warning("LlamaInference", "Chat template not recognized, using plain prompt")
-            return "\(systemPrompt)\n\n\(userPrompt)\n"
-        }
-
-        // Second call: fill buffer
-        var buffer = [CChar](repeating: 0, count: Int(needed) + 1)
-        llama_chat_apply_template(nil, &messages, messages.count, true, &buffer, Int32(buffer.count))
-
-        return String(cString: buffer)
+        return "\(systemPrompt)\n\n\(userPrompt)\n\nTranslation:\n"
     }
 
     private func tokenize(
