@@ -12,7 +12,7 @@ struct AITranslatorApp: App {
         let catalog = ModelCatalog()
         _settingsViewModel = StateObject(wrappedValue: settings)
         _modelCatalog = StateObject(wrappedValue: catalog)
-        let translator = TranslatorViewModel(settingsViewModel: settings)
+        let translator = TranslatorViewModel(settingsViewModel: settings, modelCatalog: catalog)
         _translatorViewModel = StateObject(wrappedValue: translator)
         // Share ViewModels with AppDelegate for hotkey
         appDelegate.settingsViewModel = settings

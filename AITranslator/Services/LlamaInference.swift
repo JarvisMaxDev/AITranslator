@@ -32,19 +32,28 @@ enum LlamaInferenceError: LocalizedError {
 // MARK: - Actor
 
 /// Thread-safe wrapper around llama.cpp C API for on-device text generation.
-/// Metal GPU acceleration enabled by default (all layers offloaded).
+/// Metal GPU acceleration on Apple Silicon, CPU fallback on Intel.
 actor LlamaInference {
 
     private var model: OpaquePointer?
     private var context: OpaquePointer?
 
-    private static let defaultContextSize: UInt32 = 4096
+    private static let defaultContextSize: UInt32 = 8192
+
+    // Global singleton init — must be called exactly once per process
+    private static let backendInit: Void = {
+        llama_backend_init()
+    }()
 
     init(modelPath: String) async throws {
-        llama_backend_init()
+        _ = Self.backendInit
 
         var modelParams = llama_model_default_params()
-        modelParams.n_gpu_layers = 99
+        #if arch(arm64)
+        modelParams.n_gpu_layers = 99  // Metal GPU on Apple Silicon
+        #else
+        modelParams.n_gpu_layers = 0   // CPU-only on Intel
+        #endif
 
         guard let loadedModel = llama_model_load_from_file(modelPath, modelParams) else {
             throw LlamaInferenceError.modelLoadFailed(path: modelPath)
@@ -221,8 +230,10 @@ actor LlamaInference {
 
         if temperature > 0 {
             llama_sampler_chain_add(chain, llama_sampler_init_temp(temperature))
+            llama_sampler_chain_add(chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
+        } else {
+            llama_sampler_chain_add(chain, llama_sampler_init_greedy())
         }
-        llama_sampler_chain_add(chain, llama_sampler_init_greedy())
 
         return chain
     }

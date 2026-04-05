@@ -3,7 +3,7 @@ import Foundation
 /// Lightweight localhost HTTP server to capture OAuth callback.
 /// Starts on a random available port, waits for a single GET request to /callback,
 /// extracts the authorization code, and returns a success page to the browser.
-final class LocalCallbackServer {
+final class LocalCallbackServer: @unchecked Sendable {
     private var listener: URLSessionStreamTask?
     private var serverSocket: Int32 = -1
     private var port: UInt16 = 0

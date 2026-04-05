@@ -12,9 +12,8 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
     private var inference: LlamaInference?
 
     var isAuthenticated: Bool {
-        // Access catalog state via MainActor
-        // Since TranslationService skips auth check, this is best-effort
-        true
+        // Check if a model is selected (persisted in UserDefaults)
+        UserDefaults.standard.string(forKey: "localModelActiveId") != nil
     }
 
     init(config: ProviderConfig, catalog: ModelCatalog) {
@@ -61,9 +60,9 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
 
         let systemPrompt = buildSystemPrompt(request: request)
 
-        // Adaptive max_tokens: input length * 1.5, minimum 256
-        let estimatedInputTokens = request.sourceText.count / 4
-        let maxTokens = max(256, Int(Double(estimatedInputTokens) * 1.5))
+        // Adaptive max_tokens: use utf8 byte count for better CJK estimation
+        let estimatedInputTokens = request.sourceText.utf8.count / 4
+        let maxTokens = max(512, min(4096, Int(Double(estimatedInputTokens) * 1.5)))
 
         AppLogger.request("LocalModel", "Translating via \(model.name)",
             details: "Text: \(request.sourceText.prefix(200))\(request.sourceText.count > 200 ? "..." : "")")

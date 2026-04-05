@@ -107,7 +107,7 @@ final class TTSService: ObservableObject {
 
 // MARK: - Speech Delegate
 
-private class SpeechDelegate: NSObject, AVSpeechSynthesizerDelegate {
+private final class SpeechDelegate: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
     private let onFinish: @Sendable () -> Void
 
     init(onFinish: @escaping @Sendable () -> Void) {

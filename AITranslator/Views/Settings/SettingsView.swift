@@ -443,7 +443,27 @@ struct SettingsView: View {
 
                     // Actions
                     HStack(spacing: 8) {
-                        if !config.isAuthenticated {
+                        if config.type == .local {
+                            // Local provider: no OAuth/API key — just Use/Active + manage models in Local Models tab
+                            if isActive {
+                                Text(NSLocalizedString("settings.active", comment: "Active"))
+                                    .font(.system(size: 11, weight: .bold))
+                                    .textCase(.uppercase)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Capsule().fill(.blue.opacity(0.15)))
+                                    .foregroundStyle(.blue)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            } else {
+                                Button(NSLocalizedString("settings.use", comment: "Use")) {
+                                    draftSelectedProviderId = config.id
+                                    hasChanges = true
+                                }
+                                .buttonStyle(.bordered)
+                                .fixedSize()
+                                .disabled(!config.isAuthenticated)
+                            }
+                        } else if !config.isAuthenticated {
                             Button(NSLocalizedString("settings.connect", comment: "Connect")) {
                                 settingsViewModel.startOAuth(forProvider: config.id)
                             }
@@ -587,7 +607,7 @@ struct SettingsView: View {
                 .fontWeight(.semibold)
 
             VStack(spacing: 12) {
-                ForEach(ProviderType.allCases.filter({ $0 != .local })) { type in
+                ForEach(ProviderType.allCases) { type in
                     Button(action: {
                         // Persist immediately so OAuth/API key flows can find this provider
                         settingsViewModel.addProvider(type: type)

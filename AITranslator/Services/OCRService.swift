@@ -3,7 +3,7 @@ import AppKit
 
 /// Service for OCR text recognition from images using Vision framework
 final class OCRService {
-    static let shared = OCRService()
+    nonisolated(unsafe) static let shared = OCRService()
     private init() {}
 
     /// Recognize text from an NSImage using Vision framework

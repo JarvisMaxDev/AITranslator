@@ -3,9 +3,11 @@ import Carbon.HIToolbox
 
 /// Manages global hotkey registration, text capture (AX API + clipboard fallback),
 /// and delivers captured text via callback.
+/// @unchecked Sendable: accessed from Carbon callback (non-main thread) and main thread.
+/// Thread safety managed manually via DispatchQueue.main for UI-bound state.
 /// Extracted from AppDelegate to reduce God Object complexity.
 @MainActor
-final class HotkeyService {
+final class HotkeyService: @unchecked Sendable {
     private var hotKeyRef: EventHotKeyRef?
     private var onTextCaptured: ((String) -> Void)?
 
@@ -105,9 +107,9 @@ final class HotkeyService {
                         }
 
                         // Check clipboard after delay with retry
-                        func checkAndRetry(attempt: Int, maxAttempts: Int) {
+                        @Sendable func checkAndRetry(attempt: Int, maxAttempts: Int) {
                             DispatchQueue.global().asyncAfter(deadline: .now() + 0.4) {
-                                let newContent = pasteboard.string(forType: .string) ?? ""
+                                let newContent = NSPasteboard.general.string(forType: .string) ?? ""
                                 if !newContent.isEmpty && newContent != oldContent {
                                     let trimmed = newContent.trimmingCharacters(in: .whitespacesAndNewlines)
                                     DispatchQueue.main.async {

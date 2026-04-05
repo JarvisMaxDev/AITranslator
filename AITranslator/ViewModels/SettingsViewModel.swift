@@ -266,12 +266,18 @@ final class SettingsViewModel: ObservableObject {
            let configs = try? JSONDecoder().decode([ProviderConfig].self, from: data) {
             providerConfigs = configs
 
-            // Check auth status from Keychain
+            // Check auth status from Keychain / local model state
             for i in providerConfigs.indices {
                 let id = providerConfigs[i].id
-                let hasOAuth = keychain.getOAuthTokens(forProvider: id) != nil
-                let hasAPIKey = keychain.getAPIKey(forProvider: id) != nil
-                providerConfigs[i].isAuthenticated = hasOAuth || hasAPIKey
+                if providerConfigs[i].type == .local {
+                    // Local provider is "authenticated" when a model is downloaded and selected
+                    let hasActiveModel = UserDefaults.standard.string(forKey: "localModelActiveId") != nil
+                    providerConfigs[i].isAuthenticated = hasActiveModel
+                } else {
+                    let hasOAuth = keychain.getOAuthTokens(forProvider: id) != nil
+                    let hasAPIKey = keychain.getAPIKey(forProvider: id) != nil
+                    providerConfigs[i].isAuthenticated = hasOAuth || hasAPIKey
+                }
             }
         }
         selectedProviderId = UserDefaults.standard.string(forKey: Constants.UserDefaultsKeys.selectedProviderId)

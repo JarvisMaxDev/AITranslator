@@ -128,7 +128,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Accessibility
 
     private func requestAccessibility() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
         AppLogger.shared.info("Accessibility", "Trusted: \(trusted)")
 

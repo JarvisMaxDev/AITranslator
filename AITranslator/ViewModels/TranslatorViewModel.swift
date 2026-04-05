@@ -27,8 +27,9 @@ final class TranslatorViewModel: ObservableObject {
     private var redoStack: [(source: String, translated: String)] = []
     private let maxUndoLevels = 50
 
-    init(settingsViewModel: SettingsViewModel) {
+    init(settingsViewModel: SettingsViewModel, modelCatalog: ModelCatalog? = nil) {
         self.settingsViewModel = settingsViewModel
+        self.translationService.modelCatalog = modelCatalog
 
         // Setup providers from config
         for config in settingsViewModel.providerConfigs where config.isEnabled {

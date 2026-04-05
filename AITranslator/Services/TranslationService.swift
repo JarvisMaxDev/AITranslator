@@ -17,8 +17,12 @@ final class TranslationService: ObservableObject {
     /// Reference to model catalog for local provider lifecycle management
     var modelCatalog: ModelCatalog?
 
-    /// Create and register provider from config
+    /// Create and register provider from config.
+    /// Skips recreation if provider already exists for this config ID.
     func setupProvider(from config: ProviderConfig) {
+        // Don't recreate if provider already registered for this ID
+        if providers[config.id] != nil { return }
+
         let provider: AIProvider
         switch config.type {
         case .qwen:

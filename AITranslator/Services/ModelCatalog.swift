@@ -492,9 +492,9 @@ final class ModelCatalog: ObservableObject {
             throw CatalogError.noGGUFFileFound(repo)
         }
 
-        // Derive a stable id from the repo name.
+        // Derive a stable id from the full repo path to avoid collisions
         let repoName = repo.split(separator: "/").last.map(String.init) ?? repo
-        let modelId = "custom-\(repoName.lowercased().replacingOccurrences(of: "_", with: "-"))"
+        let modelId = "custom-\(repo.replacingOccurrences(of: "/", with: "--").lowercased())"
         let downloadURL = "https://huggingface.co/\(repo)/resolve/main/\(fileName)"
 
         return LocalModel(
