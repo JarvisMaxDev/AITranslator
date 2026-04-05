@@ -1,5 +1,6 @@
 import Cocoa
 import SwiftUI
+import LlamaSwift
 
 /// Thin coordinator — delegates hotkey, status bar, and window management
 /// to dedicated services.
@@ -29,17 +30,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // Unload llama model before exit to prevent Metal crash in ggml_metal_rsets_free
-        Task {
-            await translatorViewModel?.unloadLocalModelBeforeExit()
-            sender.reply(toApplicationShouldTerminate: true)
-        }
-        return .terminateLater
-    }
-
     func applicationWillTerminate(_ notification: Notification) {
         hotkeyService.stop()
+        // Synchronously unload llama model to prevent Metal crash in ggml_metal_rsets_free.
+        // C++ global destructors run after exit() and crash if Metal device is already torn down.
+        // llama_backend_free() releases all global state before the destructors run.
+        llama_backend_free()
     }
 
     // MARK: - Setup
