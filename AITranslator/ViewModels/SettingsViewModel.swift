@@ -26,8 +26,23 @@ final class SettingsViewModel: ObservableObject {
         let oauthTokens = keychain.getOAuthTokens(forProvider: id)
         let apiKey = keychain.getAPIKey(forProvider: id)
 
-        guard oauthTokens != nil || apiKey != nil else {
-            fetchedModels[id] = []
+        // Providers with dynamic model lists need auth first
+        switch config.type {
+        case .openai, .anthropic:
+            guard oauthTokens != nil || apiKey != nil else {
+                // Not authenticated yet — no models to show
+                fetchedModels[id] = []
+                return
+            }
+        case .gemini:
+            // Gemini supports OAuth — try dynamic fetch if authenticated, otherwise use hardcoded
+            guard oauthTokens != nil || apiKey != nil else {
+                fetchedModels[id] = config.type.availableModels
+                return
+            }
+        case .qwen, .local:
+            // These use hardcoded lists — no API needed
+            fetchedModels[id] = config.type.availableModels
             return
         }
 
@@ -48,13 +63,8 @@ final class SettingsViewModel: ObservableObject {
                 )
                 fetchedModels[id] = models
                 AppLogger.info("Models", "Loaded \(models.count) OpenAI models")
-            case .qwen:
-                if let tokens = oauthTokens {
-                    let models = await ModelService.shared.fetchQwenModels(
-                        token: tokens.accessToken, providerId: config.id)
-                    fetchedModels[id] = models
-                    AppLogger.info("Models", "Loaded \(models.count) Qwen models")
-                }
+            case .qwen, .local:
+                break // handled above with hardcoded lists
             case .gemini:
                 if let tokens = oauthTokens {
                     let models = await ModelService.shared.fetchGeminiModels(
@@ -73,7 +83,18 @@ final class SettingsViewModel: ObservableObject {
 
     /// Get models for a provider (fetched dynamically or hardcoded for some providers)
     func modelsForProvider(_ id: String) -> [(id: String, name: String)] {
-        return fetchedModels[id] ?? []
+        if let fetched = fetchedModels[id] {
+            return fetched
+        }
+        // Only use hardcoded for providers without dynamic model API
+        guard let config = providerConfigs.first(where: { $0.id == id }) else { return [] }
+        switch config.type {
+        case .qwen, .gemini, .local:
+            return config.type.availableModels
+        case .openai, .anthropic:
+            // Dynamic models — empty until authenticated and fetched
+            return []
+        }
     }
 
     // MARK: - Provider Management
@@ -139,6 +160,9 @@ final class SettingsViewModel: ObservableObject {
                 success = await oauthService.startOpenAIOAuth(providerId: id)
             case .gemini:
                 success = await oauthService.startGeminiOAuth(providerId: id)
+            case .local:
+                // No auth needed — model management handled separately
+                break
             }
 
             if success {

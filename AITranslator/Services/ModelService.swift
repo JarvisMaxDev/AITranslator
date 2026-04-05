@@ -2,7 +2,7 @@ import Foundation
 
 /// Service to fetch available models from provider APIs
 final class ModelService {
-    static let shared = ModelService()
+    nonisolated(unsafe) static let shared = ModelService()
 
     /// Fetch available Claude models from Anthropic API
     /// Requires OAuth token with anthropic-beta header

@@ -7,7 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		018269E47D54E889B6997BE0 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD3D258398F8077485A06D3 /* ModelCatalog.swift */; };
 		241CEA15558392B8E64B53CA /* TranslatorViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132A987A14FB371A17A894D6 /* TranslatorViewModelTests.swift */; };
+		29AA8B454CBCCE4008D3CC72 /* LocalModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91BCC27D9D7F5892877530A7 /* LocalModelProvider.swift */; };
+		2B4ACCF0CC4440874ED43547 /* LlamaInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E770695CAEF1CC3709F533 /* LlamaInference.swift */; };
 		3848751BC558022596D4F3AB /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220A2D33BE8B6110A90F23FB /* HotkeyRecorderView.swift */; };
 		3B14EDF6124F59357F55AA24 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 70DB81D2CFA95B4BE5EB22EE /* Localizable.strings */; };
 		40C02F386ECDB4CFA44ACAF5 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */; };
@@ -26,6 +29,7 @@
 		8698CCE9D289A0643E65080E /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10D08440D68C9B39710E5D /* AIProvider.swift */; };
 		86C36FCE234442BA9787ED22 /* AITranslatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB83B26766FDA602C3289053 /* AITranslatorApp.swift */; };
 		89D671DB26F57D4FDA753F74 /* Provider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E930E1E8083B95627DF9D75 /* Provider.swift */; };
+		8AD78F403F8A0C48D9B63DE0 /* LocalModelSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 167D1C21203B17F1F54DE0DF /* LocalModelSettingsView.swift */; };
 		8AEE7918902A0557D5687612 /* OAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 482A50FD172606D842B28BA2 /* OAuthService.swift */; };
 		95C2E596FF92018DE48AD6B7 /* ConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770CB59405077527397A4135 /* ConsoleView.swift */; };
 		95D0643E7D0CB1C752D06160 /* HotkeyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BBE3F260492C0A776FE518B /* HotkeyService.swift */; };
@@ -38,6 +42,7 @@
 		E93005480CBE8E46CAE1D148 /* Translation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD147362A8A851D3B7EDE514 /* Translation.swift */; };
 		F0A11E29AD3846FC213DDAC2 /* TranslatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73016844C79CDDDF58BD8B3F /* TranslatorViewModel.swift */; };
 		F1DD709C42EFD236E926217C /* TranslationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14885D5F11B7413D17510A9 /* TranslationService.swift */; };
+		F2FCF85B748DB88ED3F8158B /* LlamaSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 419E6DB974FDB2BA87279146 /* LlamaSwift */; };
 		F7E91B3F5B203C08CA872FAD /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB4BC329A4ED491EA56CE3A0 /* StatusBarController.swift */; };
 		F93D57D773F9293B0C35D209 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 22B4F9C3B18040BB6074D790 /* Assets.xcassets */; };
 		F976B2C80DDF033B04CC8C9B /* TTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE73E810F36FCA5EED918887 /* TTSService.swift */; };
@@ -61,6 +66,7 @@
 		0B10D08440D68C9B39710E5D /* AIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProvider.swift; sourceTree = "<group>"; };
 		132A987A14FB371A17A894D6 /* TranslatorViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslatorViewModelTests.swift; sourceTree = "<group>"; };
 		1346DCDAF2A1E41C377366C3 /* LanguageSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageSelectorView.swift; sourceTree = "<group>"; };
+		167D1C21203B17F1F54DE0DF /* LocalModelSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelSettingsView.swift; sourceTree = "<group>"; };
 		1714D57A93A8012819835994 /* AITranslator.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AITranslator.entitlements; sourceTree = "<group>"; };
 		175B1FD3F69D8F7B30C4485C /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		220A2D33BE8B6110A90F23FB /* HotkeyRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyRecorderView.swift; sourceTree = "<group>"; };
@@ -82,6 +88,7 @@
 		87CF8D5C6B851C98FA21A3A9 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		8A3B01A08A419F5D2D9A2B59 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		8E930E1E8083B95627DF9D75 /* Provider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Provider.swift; sourceTree = "<group>"; };
+		91BCC27D9D7F5892877530A7 /* LocalModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelProvider.swift; sourceTree = "<group>"; };
 		A14885D5F11B7413D17510A9 /* TranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationService.swift; sourceTree = "<group>"; };
 		A1B205FD44A746E0B21AFC4A /* Language.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Language.swift; sourceTree = "<group>"; };
 		A49CF88EA73A630EA59566AC /* OpenAIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIProvider.swift; sourceTree = "<group>"; };
@@ -91,11 +98,24 @@
 		B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		C2EF75F340398B77F6B9AB5D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		CB4BC329A4ED491EA56CE3A0 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
+		DAD3D258398F8077485A06D3 /* ModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalog.swift; sourceTree = "<group>"; };
+		E2E770695CAEF1CC3709F533 /* LlamaInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaInference.swift; sourceTree = "<group>"; };
 		EAB91F217857DC697004B034 /* AnthropicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicProvider.swift; sourceTree = "<group>"; };
 		EE73E810F36FCA5EED918887 /* TTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSService.swift; sourceTree = "<group>"; };
 		F7B8CA44233633035B73CB24 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/Localizable.strings; sourceTree = "<group>"; };
 		FD147362A8A851D3B7EDE514 /* Translation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Translation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		51707175BB9B62F50EB0FBAB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F2FCF85B748DB88ED3F8158B /* LlamaSwift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		1091F8CDB480E69BD50834A8 /* Resources */ = {
@@ -148,6 +168,7 @@
 		7D51598A2A6FFC748C392073 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				167D1C21203B17F1F54DE0DF /* LocalModelSettingsView.swift */,
 				C2EF75F340398B77F6B9AB5D /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -159,6 +180,7 @@
 				0B10D08440D68C9B39710E5D /* AIProvider.swift */,
 				EAB91F217857DC697004B034 /* AnthropicProvider.swift */,
 				4DBD829436296526AE36F9A0 /* GeminiProvider.swift */,
+				91BCC27D9D7F5892877530A7 /* LocalModelProvider.swift */,
 				A49CF88EA73A630EA59566AC /* OpenAIProvider.swift */,
 				4FBE33C2478CB7650365239A /* QwenProvider.swift */,
 			);
@@ -205,6 +227,8 @@
 				B7AA2C9454BDA6BCB047CD69 /* AppLogger.swift */,
 				2BBE3F260492C0A776FE518B /* HotkeyService.swift */,
 				8A3B01A08A419F5D2D9A2B59 /* KeychainService.swift */,
+				E2E770695CAEF1CC3709F533 /* LlamaInference.swift */,
+				DAD3D258398F8077485A06D3 /* ModelCatalog.swift */,
 				B555EE2B08A08539440FAB28 /* ModelService.swift */,
 				4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */,
 				3A393634FA76187347E2D414 /* SSEStreamParser.swift */,
@@ -280,6 +304,7 @@
 			buildPhases = (
 				E53287299C741DC99B580DEE /* Sources */,
 				D336F042F98F734DE8B1A2A8 /* Resources */,
+				51707175BB9B62F50EB0FBAB /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -287,6 +312,7 @@
 			);
 			name = AITranslator;
 			packageProductDependencies = (
+				419E6DB974FDB2BA87279146 /* LlamaSwift */,
 			);
 			productName = AITranslator;
 			productReference = 80314A224DDC977C434E6A83 /* AITranslator.app */;
@@ -335,6 +361,9 @@
 			);
 			mainGroup = EC445F999389B68C113698F7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				51829CC9985BD710B30DA28C /* XCRemoteSwiftPackageReference "llama.swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 264EFDAD9592FA01BD6506DB /* Products */;
 			projectDirPath = "";
@@ -386,7 +415,11 @@
 				60C7C3DF9F242601F977D68F /* KeychainService.swift in Sources */,
 				5241BEF9EB0EBEBE93ACBDA0 /* Language.swift in Sources */,
 				471698BA8E57239DE4314CFD /* LanguageSelectorView.swift in Sources */,
+				2B4ACCF0CC4440874ED43547 /* LlamaInference.swift in Sources */,
 				FC27C2FD89E80D6782B93869 /* LocalCallbackServer.swift in Sources */,
+				29AA8B454CBCCE4008D3CC72 /* LocalModelProvider.swift in Sources */,
+				8AD78F403F8A0C48D9B63DE0 /* LocalModelSettingsView.swift in Sources */,
+				018269E47D54E889B6997BE0 /* ModelCatalog.swift in Sources */,
 				A9E45AB4FE205AA4E5F033D3 /* ModelService.swift in Sources */,
 				8AEE7918902A0557D5687612 /* OAuthService.swift in Sources */,
 				40C02F386ECDB4CFA44ACAF5 /* OCRService.swift in Sources */,
@@ -496,7 +529,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -504,7 +537,8 @@
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_VERSION = 5.9;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -615,7 +649,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -624,7 +658,8 @@
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.9;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -659,6 +694,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		51829CC9985BD710B30DA28C /* XCRemoteSwiftPackageReference "llama.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mattt/llama.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8665.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		419E6DB974FDB2BA87279146 /* LlamaSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 51829CC9985BD710B30DA28C /* XCRemoteSwiftPackageReference "llama.swift" */;
+			productName = LlamaSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 03DDE49078E8FDA630B52948 /* Project object */;
 }

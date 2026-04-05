@@ -1,6 +1,7 @@
 import Foundation
 
 /// Protocol that all AI translation providers must conform to
+@MainActor
 protocol AIProvider {
     var id: String { get }
     var type: ProviderType { get }

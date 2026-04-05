@@ -5,10 +5,13 @@ struct AITranslatorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var settingsViewModel = SettingsViewModel()
     @StateObject private var translatorViewModel: TranslatorViewModel
+    @StateObject private var modelCatalog = ModelCatalog()
 
     init() {
         let settings = SettingsViewModel()
+        let catalog = ModelCatalog()
         _settingsViewModel = StateObject(wrappedValue: settings)
+        _modelCatalog = StateObject(wrappedValue: catalog)
         let translator = TranslatorViewModel(settingsViewModel: settings)
         _translatorViewModel = StateObject(wrappedValue: translator)
         // Share ViewModels with AppDelegate for hotkey
@@ -21,6 +24,7 @@ struct AITranslatorApp: App {
             TranslatorView()
                 .environmentObject(translatorViewModel)
                 .environmentObject(settingsViewModel)
+                .environmentObject(modelCatalog)
                 .frame(minWidth: 700, minHeight: 500)
                 .onOpenURL { url in
                     handleOAuthCallback(url: url)
@@ -70,6 +74,12 @@ struct AITranslatorApp: App {
                 }
                 .keyboardShortcut("a", modifiers: .command)
             }
+        }
+
+        Window(NSLocalizedString("settings.title", comment: "Settings"), id: "settings") {
+            SettingsView()
+                .environmentObject(settingsViewModel)
+                .environmentObject(modelCatalog)
         }
     }
 
