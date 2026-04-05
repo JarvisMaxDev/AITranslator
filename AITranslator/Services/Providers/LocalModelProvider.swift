@@ -134,11 +134,16 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
             "This is the final",
             "The translation is",
             "Here is the translation",
+            "This translation is",
+            "The word ",
+            "The Russian ",
             "Note:",
             "I hope",
             "If you need",
             "Let me know",
             "Feel free",
+            "Translation:",
+            "translation:",
         ]
 
         for marker in explanationMarkers {
