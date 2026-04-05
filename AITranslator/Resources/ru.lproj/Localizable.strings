@@ -101,3 +101,9 @@
 
 /* TTS */
 "action.speak" = "Озвучить";
+
+/* Local Models */
+"settings.local_models" = "Локальные модели";
+"settings.local_models_description" = "Скачайте AI-модели для перевода без интернета. Модели побольше дают лучший перевод, но требуют больше места и оперативной памяти.";
+"settings.add_from_hf" = "Добавить с HuggingFace";
+"action.download" = "Скачать";

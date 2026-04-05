@@ -101,3 +101,9 @@
 
 /* TTS */
 "action.speak" = "Read aloud";
+
+/* Local Models */
+"settings.local_models" = "Local Models";
+"settings.local_models_description" = "Download AI models for offline translation. Larger models produce better results but need more disk space and RAM.";
+"settings.add_from_hf" = "Add from HuggingFace";
+"action.download" = "Download";

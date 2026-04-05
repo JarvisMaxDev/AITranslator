@@ -85,18 +85,15 @@ actor LlamaInference {
 
         let vocab = llama_model_get_vocab(model)!
 
-        // Build ChatML prompt
-        let prompt = """
-        <|im_start|>system
-        \(systemPrompt)<|im_end|>
-        <|im_start|>user
-        \(userPrompt)<|im_end|>
-        <|im_start|>assistant
-
-        """
+        // Use llama_chat_apply_template to auto-detect the correct prompt format
+        let prompt = buildPromptFromTemplate(
+            model: model,
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt
+        )
 
         // Tokenize
-        let tokens = try tokenize(prompt: prompt, vocab: vocab, addBos: true)
+        let tokens = try tokenize(prompt: prompt, vocab: vocab, addBos: false)
         AppLogger.info("LlamaInference", "Prompt tokenized", details: "\(tokens.count) tokens")
 
         // Clear memory (KV cache) so each call is independent
@@ -130,6 +127,7 @@ actor LlamaInference {
         outputBytes.reserveCapacity(maxTokens * 4)
 
         let eosToken = llama_vocab_eos(vocab)
+        let eotToken = llama_vocab_eot(vocab)  // end-of-turn (Gemma uses this)
         var currentPos = Int32(tokens.count)
 
         var singleBatch = llama_batch_init(1, 0, 1)
@@ -139,7 +137,8 @@ actor LlamaInference {
             let nextToken = llama_sampler_sample(samplerChain, context, -1)
             llama_sampler_accept(samplerChain, nextToken)
 
-            if nextToken == eosToken { break }
+            // Stop at EOS or end-of-turn
+            if nextToken == eosToken || nextToken == eotToken || llama_vocab_is_eog(vocab, nextToken) { break }
 
             // Convert token to bytes
             var tokenBytes = [CChar](repeating: 0, count: 32)
@@ -196,6 +195,40 @@ actor LlamaInference {
     // Actor deinit cannot access isolated state safely in Swift 6.
 
     // MARK: - Private
+
+    /// Build prompt using llama_chat_apply_template which auto-detects
+    /// the correct format from model metadata (Gemma, ChatML, Llama, etc.)
+    private func buildPromptFromTemplate(
+        model: OpaquePointer,
+        systemPrompt: String,
+        userPrompt: String
+    ) -> String {
+        let combinedUserMessage = "\(systemPrompt)\n\n\(userPrompt)"
+
+        // Build chat messages array
+        var messages: [llama_chat_message] = []
+
+        let userRole = "user".withCString { strdup($0)! }
+        let userContent = combinedUserMessage.withCString { strdup($0)! }
+        defer { free(userRole); free(userContent) }
+
+        messages.append(llama_chat_message(role: userRole, content: userContent))
+
+        // First call: determine buffer size needed (pass length=0)
+        let needed = llama_chat_apply_template(nil, &messages, messages.count, true, nil, 0)
+
+        guard needed > 0 else {
+            // Fallback: simple concatenation if template not recognized
+            AppLogger.warning("LlamaInference", "Chat template not recognized, using plain prompt")
+            return "\(systemPrompt)\n\n\(userPrompt)\n"
+        }
+
+        // Second call: fill buffer
+        var buffer = [CChar](repeating: 0, count: Int(needed) + 1)
+        llama_chat_apply_template(nil, &messages, messages.count, true, &buffer, Int32(buffer.count))
+
+        return String(cString: buffer)
+    }
 
     private func tokenize(
         prompt: String,

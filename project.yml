@@ -42,6 +42,7 @@ targets:
       path: AITranslator/Resources/AITranslator.entitlements
       properties:
         com.apple.security.app-sandbox: false
+        com.apple.security.cs.disable-library-validation: true
 
   AITranslatorTests:
     type: bundle.unit-test
