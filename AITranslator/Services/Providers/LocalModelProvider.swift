@@ -99,7 +99,7 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
 
     // MARK: - Private
 
-    /// Remove model-specific tags from output (think blocks, chat markers, etc.)
+    /// Remove model-specific tags and post-process output to extract clean translation.
     private static func cleanModelOutput(_ raw: String) -> String {
         var text = raw
 
@@ -118,13 +118,53 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
             "<|im_start|>", "<|im_end|>",
             "<|endoftext|>", "<|end|>",
             "<start_of_turn>", "<end_of_turn>",
-            "Translation:", "translation:",
         ]
         for pattern in junkPatterns {
             text = text.replacingOccurrences(of: pattern, with: "")
         }
 
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // If model started explaining instead of just translating,
+        // take only the first non-empty paragraph (the actual translation).
+        // Heuristic: if output contains English explanation after translation,
+        // the explanation usually starts with a sentence containing common words.
+        let explanationMarkers = [
+            "This text is already",
+            "This is the final",
+            "The translation is",
+            "Here is the translation",
+            "Note:",
+            "I hope",
+            "If you need",
+            "Let me know",
+            "Feel free",
+        ]
+
+        for marker in explanationMarkers {
+            if let range = text.range(of: marker) {
+                text = String(text[text.startIndex..<range.lowerBound])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                break
+            }
+        }
+
+        // Remove duplicate lines (some models repeat the translation)
+        let lines = text.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        if lines.count >= 2 {
+            var seen = Set<String>()
+            var unique: [String] = []
+            for line in lines {
+                if seen.insert(line).inserted {
+                    unique.append(line)
+                }
+            }
+            text = unique.joined(separator: "\n")
+        }
+
+        return text
     }
 
     private func buildSystemPrompt(request: TranslationRequest) -> String {
@@ -134,14 +174,7 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
         let targetLang = request.targetLanguage.name
 
         return """
-        You are a professional translator. Translate the following text from \(sourceLang) to \(targetLang).
-
-        Rules:
-        - Return ONLY the translated text, nothing else
-        - Preserve the original formatting (line breaks, paragraphs)
-        - Maintain the tone and style of the original text
-        - Do not add explanations, notes, or comments
-        - If the text is already in the target language, return it as-is
+        Translate from \(sourceLang) to \(targetLang). Output ONLY the translation, nothing else. No explanations.
         """
     }
 }
