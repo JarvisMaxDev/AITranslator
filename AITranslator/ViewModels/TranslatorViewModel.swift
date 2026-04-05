@@ -230,7 +230,7 @@ final class TranslatorViewModel: ObservableObject {
     // MARK: - OCR
 
     /// Process an image: run OCR and auto-translate the recognized text
-    func processImage(_ image: NSImage) async {
+    func processImage(_ image: sending NSImage) async {
         saveState()
         isProcessingOCR = true
         error = nil
