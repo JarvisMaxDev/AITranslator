@@ -225,6 +225,11 @@ final class TranslatorViewModel: ObservableObject {
         NSPasteboard.general.setString(translatedText, forType: .string)
     }
 
+    /// Unload local model before app exit to prevent Metal crash
+    func unloadLocalModelBeforeExit() async {
+        await translationService.unloadLocalModel()
+    }
+
     /// Clear all text
     func clearAll() {
         saveState()

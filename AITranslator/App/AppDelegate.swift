@@ -29,6 +29,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Unload llama model before exit to prevent Metal crash in ggml_metal_rsets_free
+        Task {
+            await translatorViewModel?.unloadLocalModelBeforeExit()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         hotkeyService.stop()
     }
