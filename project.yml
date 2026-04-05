@@ -9,8 +9,14 @@ options:
 
 settings:
   base:
-    SWIFT_VERSION: "5.9"
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
     MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+packages:
+  LlamaSwift:
+    url: https://github.com/mattt/llama.swift
+    from: "2.8665.0"
 
 targets:
   AITranslator:
@@ -18,6 +24,8 @@ targets:
     platform: macOS
     sources:
       - path: AITranslator
+    dependencies:
+      - package: LlamaSwift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aitranslator.app

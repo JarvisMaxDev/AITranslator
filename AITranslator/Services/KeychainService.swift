@@ -3,7 +3,7 @@ import Security
 
 /// Credential storage: API keys in Keychain, OAuth tokens in file system
 final class KeychainService {
-    static let shared = KeychainService()
+    nonisolated(unsafe) static let shared = KeychainService()
     private let servicePrefix = "com.aitranslator"
 
     /// Directory for storing OAuth credentials

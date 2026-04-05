@@ -14,6 +14,9 @@ final class TranslationService: ObservableObject {
         providers[provider.id] = provider
     }
 
+    /// Reference to model catalog for local provider lifecycle management
+    var modelCatalog: ModelCatalog?
+
     /// Create and register provider from config
     func setupProvider(from config: ProviderConfig) {
         let provider: AIProvider
@@ -26,8 +29,23 @@ final class TranslationService: ObservableObject {
             provider = OpenAIProvider(config: config)
         case .gemini:
             provider = GeminiProvider(config: config)
+        case .local:
+            guard let catalog = modelCatalog else {
+                AppLogger.shared.error("TranslationService", "Cannot create local provider: no ModelCatalog")
+                return
+            }
+            provider = LocalModelProvider(config: config, catalog: catalog)
         }
         registerProvider(provider)
+    }
+
+    /// Unload local model from memory when switching away from local provider
+    func unloadLocalModel() async {
+        for provider in providers.values {
+            if let localProvider = provider as? LocalModelProvider {
+                await localProvider.unloadModel()
+            }
+        }
     }
 
     /// Translate text using the specified provider

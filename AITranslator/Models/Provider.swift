@@ -6,6 +6,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
     case anthropic = "anthropic"
     case openai = "openai"
     case gemini = "gemini"
+    case local = "local"
 
     var id: String { rawValue }
 
@@ -15,6 +16,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .anthropic: return "Claude (Anthropic)"
         case .openai: return "OpenAI"
         case .gemini: return "Google Gemini"
+        case .local: return "Local Model"
         }
     }
 
@@ -24,6 +26,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .anthropic: return "brain.head.profile"
         case .openai: return "bolt.fill"
         case .gemini: return "diamond.fill"
+        case .local: return "cpu"
         }
     }
 
@@ -33,6 +36,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .anthropic: return "https://api.anthropic.com/v1"
         case .openai: return "https://api.openai.com/v1"
         case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai"
+        case .local: return ""
         }
     }
 
@@ -43,6 +47,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .anthropic: return "https://api.anthropic.com/v1"
         case .openai: return "https://api.openai.com/v1"
         case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai"
+        case .local: return ""
         }
     }
 
@@ -52,6 +57,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .anthropic: return "claude-sonnet-4-20250514"
         case .openai: return "gpt-4o"
         case .gemini: return "gemini-2.5-flash"
+        case .local: return "local"
         }
     }
 
@@ -62,6 +68,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .anthropic: return "claude-sonnet-4-20250514"
         case .openai: return "gpt-4o"
         case .gemini: return "gemini-2.5-flash"
+        case .local: return "local"
         }
     }
 
@@ -71,6 +78,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .anthropic: return true
         case .openai: return true
         case .gemini: return false
+        case .local: return false
         }
     }
 
@@ -108,6 +116,8 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
                 ("gemini-2.0-flash", "Gemini 2.0 Flash"),
                 ("gemini-2.0-flash-lite", "Gemini 2.0 Flash-Lite · Fast"),
             ]
+        case .local:
+            return [("local", "Local Model")]
         }
     }
 }

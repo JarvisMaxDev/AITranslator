@@ -18,7 +18,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func requestAccessibility() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        // "AXTrustedCheckOptionPrompt" is the raw string behind kAXTrustedCheckOptionPrompt
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
         print("[Hotkey] Accessibility trusted: \(trusted)")
     }

@@ -3,16 +3,19 @@ import Carbon.HIToolbox
 
 struct SettingsView: View {
     @EnvironmentObject var settingsViewModel: SettingsViewModel
+    @EnvironmentObject var modelCatalog: ModelCatalog
     @Environment(\.dismiss) private var dismiss
 
     private enum Tab: String, CaseIterable {
         case general = "General"
         case providers = "AI Providers"
-        
+        case localModels = "Local Models"
+
         var localizedStringKey: LocalizedStringKey {
             switch self {
             case .general: return "settings.general"
             case .providers: return "settings.providers"
+            case .localModels: return "settings.local_models"
             }
         }
     }
@@ -70,6 +73,8 @@ struct SettingsView: View {
                     generalTab
                 case .providers:
                     providersTab
+                case .localModels:
+                    localModelsTab
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -145,6 +150,15 @@ struct SettingsView: View {
         }
         hasChanges = false
         dismiss()
+    }
+
+    // MARK: - Local Models Tab
+
+    private var localModelsTab: some View {
+        ScrollView {
+            LocalModelSettingsView(catalog: modelCatalog)
+                .padding(24)
+        }
     }
 
     // MARK: - General Tab
@@ -457,7 +471,7 @@ struct SettingsView: View {
                 .fontWeight(.semibold)
 
             VStack(spacing: 12) {
-                ForEach(ProviderType.allCases) { type in
+                ForEach(ProviderType.allCases.filter({ $0 != .local })) { type in
                     Button(action: {
                         let config = ProviderConfig(type: type)
                         draftConfigs.append(config)
@@ -549,6 +563,7 @@ struct SettingsView: View {
         case .anthropic: return NSLocalizedString("settings.anthropic_api_key_hint", comment: "")
         case .openai: return NSLocalizedString("settings.openai_api_key_hint", comment: "")
         case .gemini: return NSLocalizedString("settings.gemini_api_key_hint", comment: "")
+        case .local: return ""
         }
     }
 }

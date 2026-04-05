@@ -34,7 +34,7 @@ final class SettingsViewModel: ObservableObject {
                 fetchedModels[id] = []
                 return
             }
-        case .qwen, .gemini:
+        case .qwen, .gemini, .local:
             // These use hardcoded lists — no API needed
             fetchedModels[id] = config.type.availableModels
             return
@@ -56,7 +56,7 @@ final class SettingsViewModel: ObservableObject {
                 )
                 fetchedModels[id] = models
                 AppLogger.info("Models", "Loaded \(models.count) OpenAI models")
-            case .qwen, .gemini:
+            case .qwen, .gemini, .local:
                 break // handled above
             }
         }
@@ -70,7 +70,7 @@ final class SettingsViewModel: ObservableObject {
         // Only use hardcoded for providers without dynamic model API
         guard let config = providerConfigs.first(where: { $0.id == id }) else { return [] }
         switch config.type {
-        case .qwen, .gemini:
+        case .qwen, .gemini, .local:
             return config.type.availableModels
         case .openai, .anthropic:
             // Dynamic models — empty until authenticated and fetched
@@ -152,6 +152,9 @@ final class SettingsViewModel: ObservableObject {
                 success = await oauthService.startOpenAIOAuth(providerId: id)
             case .gemini:
                 // API key only — no OAuth flow needed
+                break
+            case .local:
+                // No auth needed — model management handled separately
                 break
             }
 
