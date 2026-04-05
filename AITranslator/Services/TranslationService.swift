@@ -18,10 +18,10 @@ final class TranslationService: ObservableObject {
     var modelCatalog: ModelCatalog?
 
     /// Create and register provider from config.
-    /// Skips recreation if provider already exists for this config ID.
+    /// Skips recreation only for local provider (expensive model in RAM).
+    /// Cloud providers are always refreshed to pick up credential changes.
     func setupProvider(from config: ProviderConfig) {
-        // Don't recreate if provider already registered for this ID
-        if providers[config.id] != nil { return }
+        if config.type == .local, providers[config.id] != nil { return }
 
         let provider: AIProvider
         switch config.type {

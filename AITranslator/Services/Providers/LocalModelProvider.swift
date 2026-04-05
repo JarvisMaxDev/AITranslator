@@ -62,7 +62,7 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
 
         // Adaptive max_tokens: use utf8 byte count for better CJK estimation
         let estimatedInputTokens = request.sourceText.utf8.count / 4
-        let maxTokens = max(512, min(4096, Int(Double(estimatedInputTokens) * 1.5)))
+        let maxTokens = max(512, min(2048, Int(Double(estimatedInputTokens) * 1.5)))
 
         AppLogger.request("LocalModel", "Translating via \(model.name)",
             details: "Text: \(request.sourceText.prefix(200))\(request.sourceText.count > 200 ? "..." : "")")

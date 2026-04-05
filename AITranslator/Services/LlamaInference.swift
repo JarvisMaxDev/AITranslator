@@ -38,7 +38,7 @@ actor LlamaInference {
     private var model: OpaquePointer?
     private var context: OpaquePointer?
 
-    private static let defaultContextSize: UInt32 = 8192
+    private static let defaultContextSize: UInt32 = 4096
 
     // Global singleton init — must be called exactly once per process
     private static let backendInit: Void = {
@@ -229,8 +229,8 @@ actor LlamaInference {
         let chain = llama_sampler_chain_init(sparams)!
 
         if temperature > 0 {
-            llama_sampler_chain_add(chain, llama_sampler_init_temp(temperature))
             llama_sampler_chain_add(chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
+            llama_sampler_chain_add(chain, llama_sampler_init_temp(temperature))
         } else {
             llama_sampler_chain_add(chain, llama_sampler_init_greedy())
         }

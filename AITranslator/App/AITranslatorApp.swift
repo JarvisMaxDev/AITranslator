@@ -15,8 +15,10 @@ struct AITranslatorApp: App {
         let translator = TranslatorViewModel(settingsViewModel: settings, modelCatalog: catalog)
         _translatorViewModel = StateObject(wrappedValue: translator)
         // Share ViewModels with AppDelegate for hotkey
+        settings.observeModelCatalog(catalog)
         appDelegate.settingsViewModel = settings
         appDelegate.translatorViewModel = translator
+        appDelegate.modelCatalog = catalog
     }
 
     var body: some Scene {

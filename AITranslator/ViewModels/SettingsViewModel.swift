@@ -14,9 +14,28 @@ final class SettingsViewModel: ObservableObject {
 
     let oauthService = OAuthService()
     private let keychain = KeychainService.shared
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         loadConfigs()
+    }
+
+    /// Observe ModelCatalog changes to keep local provider auth in sync
+    func observeModelCatalog(_ catalog: ModelCatalog) {
+        catalog.$activeModelId
+            .receive(on: RunLoop.main)
+            .sink { [weak self] activeId in
+                self?.syncLocalProviderAuth(hasActiveModel: activeId != nil)
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Update isAuthenticated for all .local providers based on model availability
+    func syncLocalProviderAuth(hasActiveModel: Bool) {
+        for i in providerConfigs.indices where providerConfigs[i].type == .local {
+            providerConfigs[i].isAuthenticated = hasActiveModel
+        }
+        saveConfigs()
     }
 
     /// Fetch available models for a provider from its API

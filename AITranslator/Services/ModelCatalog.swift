@@ -44,8 +44,9 @@ enum ModelState: Equatable {
 /// progress/completion events back to `ModelCatalog` on the main actor.
 private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
 
-    // MARK: Internal state
+    // MARK: Internal state (protected by lock)
 
+    private let lock = NSLock()
     private var targetModel: LocalModel?
     private var modelsDirectory: URL?
     private var onProgress: (@Sendable (Double) -> Void)?
@@ -59,6 +60,8 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
         onProgress: @escaping @Sendable (Double) -> Void,
         onCompletion: @escaping @Sendable (Result<URL, Error>) -> Void
     ) {
+        lock.lock()
+        defer { lock.unlock() }
         self.targetModel = model
         self.modelsDirectory = directory
         self.onProgress = onProgress
@@ -66,6 +69,8 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
     }
 
     func reset() {
+        lock.lock()
+        defer { lock.unlock() }
         targetModel = nil
         modelsDirectory = nil
         onProgress = nil
@@ -83,7 +88,10 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
     ) {
         guard totalBytesExpectedToWrite > 0 else { return }
         let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-        onProgress?(progress)
+        lock.lock()
+        let callback = onProgress
+        lock.unlock()
+        callback?(progress)
     }
 
     func urlSession(
@@ -91,11 +99,14 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        guard
-            let model = targetModel,
-            let directory = modelsDirectory
-        else {
-            onCompletion?(.failure(CatalogError.delegateNotConfigured))
+        lock.lock()
+        let model = targetModel
+        let directory = modelsDirectory
+        let completion = onCompletion
+        lock.unlock()
+
+        guard let model, let directory else {
+            completion?(.failure(CatalogError.delegateNotConfigured))
             reset()
             return
         }
@@ -106,9 +117,9 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
                 try FileManager.default.removeItem(at: destination)
             }
             try FileManager.default.moveItem(at: location, to: destination)
-            onCompletion?(.success(destination))
+            completion?(.success(destination))
         } catch {
-            onCompletion?(.failure(error))
+            completion?(.failure(error))
         }
         reset()
     }
@@ -494,13 +505,19 @@ final class ModelCatalog: ObservableObject {
 
         // Derive a stable id from the full repo path to avoid collisions
         let repoName = repo.split(separator: "/").last.map(String.init) ?? repo
-        let modelId = "custom-\(repo.replacingOccurrences(of: "/", with: "--").lowercased())"
+        let sanitized = repo.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+        let modelId = "custom-\(sanitized)"
+        // Prefix fileName with sanitized repo to avoid on-disk collisions
+        let uniqueFileName = "\(sanitized)--\(fileName)"
         let downloadURL = "https://huggingface.co/\(repo)/resolve/main/\(fileName)"
 
         return LocalModel(
             id: modelId,
             name: repoName,
-            fileName: fileName,
+            fileName: uniqueFileName,
             downloadURL: downloadURL,
             sizeBytes: 0,           // size unknown until download completes
             description: "Custom model from \(repo)",

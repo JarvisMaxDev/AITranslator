@@ -8,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Shared ViewModels — injected from AITranslatorApp
     var settingsViewModel: SettingsViewModel?
     var translatorViewModel: TranslatorViewModel?
+    var modelCatalog: ModelCatalog?
 
     private let hotkeyService = HotkeyService()
     private let statusBar = StatusBarController()
@@ -94,9 +95,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.isReleasedWhenClosed = false
         window.title = NSLocalizedString("settings.title", comment: "Settings")
+        let catalog = modelCatalog ?? ModelCatalog()
         window.contentView = NSHostingView(rootView:
             SettingsView()
                 .environmentObject(vm)
+                .environmentObject(catalog)
         )
         window.center()
         window.makeKeyAndOrderFront(nil)
