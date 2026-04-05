@@ -35,3 +35,7 @@ Package.resolved
 *.swo
 *~
 .vscode/
+
+# AI tools
+.claude/
+.kilo/
