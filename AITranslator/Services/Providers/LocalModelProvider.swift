@@ -10,6 +10,7 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
 
     private let catalog: ModelCatalog
     private var inference: LlamaInference?
+    private var loadedModelPath: String?
 
     var isAuthenticated: Bool {
         // Check if a model is selected (persisted in UserDefaults)
@@ -52,10 +53,15 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
             )
         }
 
-        // Load model on first use
-        if inference == nil {
+        // Load model on first use, or reload if model changed
+        if inference == nil || loadedModelPath != modelPath {
+            if inference != nil {
+                AppLogger.info("LocalModel", "Model changed, unloading previous...")
+                await inference?.unload()
+            }
             AppLogger.info("LocalModel", "Loading model into memory...", details: model.name)
             inference = try await LlamaInference(modelPath: modelPath)
+            loadedModelPath = modelPath
         }
 
         let systemPrompt = buildSystemPrompt(request: request)

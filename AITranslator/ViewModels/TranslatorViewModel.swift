@@ -116,7 +116,7 @@ final class TranslatorViewModel: ObservableObject {
         // Unload local model if switching away from local provider
         if let selectedConfig = settingsViewModel.providerConfigs.first(where: { $0.id == selectedId }),
            selectedConfig.type != .local {
-            Task { await translationService.unloadLocalModel() }
+            await translationService.unloadLocalModel()
         }
 
         // Re-setup providers in case config changed

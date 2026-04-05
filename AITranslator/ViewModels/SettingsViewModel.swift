@@ -22,8 +22,8 @@ final class SettingsViewModel: ObservableObject {
 
     /// Observe ModelCatalog changes to keep local provider auth in sync
     func observeModelCatalog(_ catalog: ModelCatalog) {
+        cancellables.removeAll()
         catalog.$activeModelId
-            .receive(on: RunLoop.main)
             .sink { [weak self] activeId in
                 self?.syncLocalProviderAuth(hasActiveModel: activeId != nil)
             }
@@ -32,10 +32,14 @@ final class SettingsViewModel: ObservableObject {
 
     /// Update isAuthenticated for all .local providers based on model availability
     func syncLocalProviderAuth(hasActiveModel: Bool) {
+        var changed = false
         for i in providerConfigs.indices where providerConfigs[i].type == .local {
-            providerConfigs[i].isAuthenticated = hasActiveModel
+            if providerConfigs[i].isAuthenticated != hasActiveModel {
+                providerConfigs[i].isAuthenticated = hasActiveModel
+                changed = true
+            }
         }
-        saveConfigs()
+        if changed { saveConfigs() }
     }
 
     /// Fetch available models for a provider from its API
@@ -121,7 +125,13 @@ final class SettingsViewModel: ObservableObject {
     /// Add a new provider configuration
     func addProvider(type: ProviderType) {
         var config = ProviderConfig(type: type)
-        config.isAuthenticated = false
+
+        if type == .local {
+            // Local provider auth = model is selected
+            config.isAuthenticated = UserDefaults.standard.string(forKey: "localModelActiveId") != nil
+        } else {
+            config.isAuthenticated = false
+        }
 
         providerConfigs.append(config)
 

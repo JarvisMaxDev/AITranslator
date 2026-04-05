@@ -228,9 +228,10 @@ actor LlamaInference {
         let sparams = llama_sampler_chain_default_params()
         let chain = llama_sampler_chain_init(sparams)!
 
+        // Order per llama.h example: top_k → top_p → temp → dist
         if temperature > 0 {
-            llama_sampler_chain_add(chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
             llama_sampler_chain_add(chain, llama_sampler_init_temp(temperature))
+            llama_sampler_chain_add(chain, llama_sampler_init_dist(UInt32.random(in: 0...UInt32.max)))
         } else {
             llama_sampler_chain_add(chain, llama_sampler_init_greedy())
         }

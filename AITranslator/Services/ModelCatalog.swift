@@ -132,7 +132,12 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
         guard let error else { return }
         let nsError = error as NSError
         guard nsError.code != NSURLErrorCancelled else { return }
-        onCompletion?(.failure(error))
+
+        lock.lock()
+        let completion = onCompletion
+        lock.unlock()
+
+        completion?(.failure(error))
         reset()
     }
 }
@@ -509,6 +514,9 @@ final class ModelCatalog: ObservableObject {
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
             .joined(separator: "-")
+        guard !sanitized.isEmpty else {
+            throw CatalogError.invalidURL(repo)
+        }
         let modelId = "custom-\(sanitized)"
         // Prefix fileName with sanitized repo to avoid on-disk collisions
         let uniqueFileName = "\(sanitized)--\(fileName)"

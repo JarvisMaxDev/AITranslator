@@ -95,7 +95,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.isReleasedWhenClosed = false
         window.title = NSLocalizedString("settings.title", comment: "Settings")
-        let catalog = modelCatalog ?? ModelCatalog()
+        guard let catalog = modelCatalog else {
+            AppLogger.shared.error("AppDelegate", "modelCatalog not injected — Settings will lack Local Models")
+            return
+        }
         window.contentView = NSHostingView(rootView:
             SettingsView()
                 .environmentObject(vm)
