@@ -12,12 +12,19 @@ final class SettingsViewModel: ObservableObject {
     /// Dynamically fetched models per provider ID
     @Published var fetchedModels: [String: [(id: String, name: String)]] = [:]
 
-    let oauthService = OAuthService()
+    let oauthService = OAuthService.shared
     private let keychain = KeychainService.shared
     private var cancellables = Set<AnyCancellable>()
 
     init() {
         loadConfigs()
+
+        // Bind OAuth user code from the singleton so Qwen device code becomes
+        // visible WHILE the flow is in progress. Reading it after `await` is too
+        // late — the value is cleared by the time startQwenOAuth returns.
+        oauthService.$userCode
+            .receive(on: RunLoop.main)
+            .assign(to: &$authUserCode)
     }
 
     /// Observe ModelCatalog changes to keep local provider auth in sync
@@ -181,8 +188,9 @@ final class SettingsViewModel: ObservableObject {
 
             switch config.type {
             case .qwen:
+                // userCode is delivered via Combine binding to $authUserCode
+                // while the flow is running — see init().
                 success = await oauthService.startQwenOAuth(providerId: id)
-                authUserCode = oauthService.userCode
             case .anthropic:
                 success = await oauthService.startAnthropicOAuth(providerId: id)
             case .openai:

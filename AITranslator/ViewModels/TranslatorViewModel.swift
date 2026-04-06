@@ -124,9 +124,23 @@ final class TranslatorViewModel: ObservableObject {
             translationService.setupProvider(from: config)
         }
 
-        // If provider is not authenticated, start OAuth automatically
+        // If provider is not authenticated, start OAuth automatically.
+        // Guard against concurrent flows: if user mashes translate while OAuth
+        // is already in progress, the second startOAuth would try to bind the
+        // same callback port (OpenAI uses fixed 1455) and crash.
         if !translationService.isProviderAuthenticated(selectedId) {
-            settingsViewModel.startOAuth(forProvider: selectedId)
+            if settingsViewModel.isAuthenticating {
+                self.error = NSLocalizedString(
+                    "error.auth_in_progress",
+                    comment: "Authentication already in progress, please complete it in the browser"
+                )
+            } else {
+                settingsViewModel.startOAuth(forProvider: selectedId)
+                self.error = NSLocalizedString(
+                    "error.reauth_required",
+                    comment: "Re-authenticating, please retry translation after sign-in"
+                )
+            }
             return
         }
 
@@ -181,9 +195,18 @@ final class TranslatorViewModel: ObservableObject {
         } catch let providerError as AIProviderError {
             if case .tokenExpired = providerError, let selectedId = settingsViewModel.selectedProviderId {
                 settingsViewModel.handleTokenExpired(providerId: selectedId)
-                settingsViewModel.startOAuth(forProvider: selectedId)
+                // Only kick off a new OAuth if one isn't already running.
+                if !settingsViewModel.isAuthenticating {
+                    settingsViewModel.startOAuth(forProvider: selectedId)
+                }
+                // Tell the user explicitly — silent retry leaves them confused.
+                self.error = NSLocalizedString(
+                    "error.reauth_required",
+                    comment: "Re-authenticating, please retry translation after sign-in"
+                )
+            } else {
+                self.error = providerError.errorDescription
             }
-            self.error = providerError.errorDescription
             AppLogger.shared.error("Translation",
                 "Stream error",
                 details: providerError.errorDescription ?? "unknown")

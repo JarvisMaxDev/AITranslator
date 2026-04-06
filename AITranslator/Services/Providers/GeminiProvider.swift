@@ -76,7 +76,10 @@ final class GeminiProvider: AIProvider {
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         guard let httpResponse = response as? HTTPURLResponse else { throw AIProviderError.invalidResponse }
 
-        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+        // 401 == expired/invalid token → drop credentials so UI re-runs OAuth.
+        // 403 == authorized but forbidden (scope/billing/quota) → keep credentials,
+        // surface the error so the user sees the cause instead of an OAuth loop.
+        if httpResponse.statusCode == 401 {
             keychain.deleteCredentials(forProvider: config.id)
             throw AIProviderError.tokenExpired
         }
@@ -196,7 +199,8 @@ final class GeminiProvider: AIProvider {
         let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
         guard let httpResponse = response as? HTTPURLResponse else { throw AIProviderError.invalidResponse }
 
-        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+        // See comment in translateWithOAuth: 401 = expired token, 403 = forbidden (keep creds).
+        if httpResponse.statusCode == 401 {
             keychain.deleteCredentials(forProvider: config.id)
             throw AIProviderError.tokenExpired
         }

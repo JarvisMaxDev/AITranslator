@@ -92,6 +92,9 @@ final class OAuthService: ObservableObject {
         isAuthenticating = true
         authError = nil
 
+        let callbackServer = LocalCallbackServer()
+        defer { callbackServer.stop() }
+
         do {
             // Step 1: Generate PKCE pair and state
             let codeVerifier = generateCodeVerifier()
@@ -99,7 +102,6 @@ final class OAuthService: ObservableObject {
             let state = generateCodeVerifier() // Random state
 
             // Step 2: Start localhost HTTP server and get port
-            let callbackServer = LocalCallbackServer()
             let port = try await callbackServer.start()
             let redirectURI = "http://localhost:\(port)/callback"
 
@@ -120,9 +122,9 @@ final class OAuthService: ObservableObject {
                 NSWorkspace.shared.open(url)
             }
 
-            // Step 4: Wait for callback (blocks until browser redirects back)
+            // Step 4: Wait for callback (blocks until browser redirects back).
+            // Server is closed by `defer` above on every exit path.
             let callbackResult = try await callbackServer.waitForCallback(timeoutSeconds: 120)
-            callbackServer.stop()
 
             // Step 5: Verify state
             guard callbackResult.state == state else {
@@ -242,6 +244,9 @@ final class OAuthService: ObservableObject {
         isAuthenticating = true
         authError = nil
 
+        let callbackServer = LocalCallbackServer()
+        defer { callbackServer.stop() }
+
         do {
             // Step 1: Generate PKCE pair and state
             let codeVerifier = generateCodeVerifier()
@@ -249,7 +254,6 @@ final class OAuthService: ObservableObject {
             let state = generateCodeVerifier()
 
             // Step 2: Start localhost HTTP server on fixed port 1455 (Codex CLI convention)
-            let callbackServer = LocalCallbackServer()
             let port = try await callbackServer.start(preferredPort: openAICallbackPort)
             let redirectURI = "http://localhost:\(port)/auth/callback"
 
@@ -274,9 +278,8 @@ final class OAuthService: ObservableObject {
                 NSWorkspace.shared.open(url)
             }
 
-            // Step 4: Wait for callback
+            // Step 4: Wait for callback. Server is closed by `defer` above.
             let callbackResult = try await callbackServer.waitForCallback(timeoutSeconds: 120)
-            callbackServer.stop()
 
             // Step 5: Verify state
             guard callbackResult.state == state else {
@@ -344,13 +347,16 @@ final class OAuthService: ObservableObject {
                 return false
             }
 
-            let responseBody = String(data: data, encoding: .utf8) ?? ""
-            AppLogger.response("OAuth", "OpenAI token response (\(httpResponse.statusCode))", details: responseBody)
+            AppLogger.response("OAuth", "OpenAI token response (\(httpResponse.statusCode))")
 
             guard httpResponse.statusCode == 200,
                   let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let accessToken = json["access_token"] as? String else {
-                authError = "Token exchange failed: \(responseBody)"
+                // Only log error body on failure (no tokens present in error responses)
+                let errorBody = httpResponse.statusCode != 200
+                    ? (String(data: data, encoding: .utf8) ?? "Unknown")
+                    : "Missing access_token in response"
+                authError = "Token exchange failed (\(httpResponse.statusCode)): \(errorBody)"
                 isAuthenticating = false
                 return false
             }
@@ -387,11 +393,17 @@ final class OAuthService: ObservableObject {
         isAuthenticating = true
         authError = nil
 
+        let callbackServer = LocalCallbackServer()
+        defer { callbackServer.stop() }
+
         do {
-            let callbackServer = LocalCallbackServer()
+            // PKCE: required by Google OAuth2 best practice for installed apps
+            let codeVerifier = generateCodeVerifier()
+            let codeChallenge = generateCodeChallenge(from: codeVerifier)
+            let state = generateCodeVerifier()
+
             let port = try await callbackServer.start()
             let redirectURI = "http://127.0.0.1:\(port)/oauth2callback"
-            let state = generateCodeVerifier()
 
             var components = URLComponents(string: geminiAuthURL)!
             components.queryItems = [
@@ -401,7 +413,9 @@ final class OAuthService: ObservableObject {
                 URLQueryItem(name: "scope", value: geminiScopes),
                 URLQueryItem(name: "access_type", value: "offline"),
                 URLQueryItem(name: "state", value: state),
-                URLQueryItem(name: "prompt", value: "consent")
+                URLQueryItem(name: "prompt", value: "consent"),
+                URLQueryItem(name: "code_challenge", value: codeChallenge),
+                URLQueryItem(name: "code_challenge_method", value: "S256")
             ]
 
             if let url = components.url {
@@ -409,7 +423,6 @@ final class OAuthService: ObservableObject {
             }
 
             let callbackResult = try await callbackServer.waitForCallback(timeoutSeconds: 120)
-            callbackServer.stop()
 
             guard callbackResult.state == state else {
                 authError = "OAuth state mismatch"
@@ -423,7 +436,12 @@ final class OAuthService: ObservableObject {
                 return false
             }
 
-            return await exchangeGeminiCode(code: code, redirectURI: redirectURI, providerId: providerId)
+            return await exchangeGeminiCode(
+                code: code,
+                codeVerifier: codeVerifier,
+                redirectURI: redirectURI,
+                providerId: providerId
+            )
 
         } catch {
             authError = error.localizedDescription
@@ -432,7 +450,7 @@ final class OAuthService: ObservableObject {
         }
     }
 
-    private func exchangeGeminiCode(code: String, redirectURI: String, providerId: String) async -> Bool {
+    private func exchangeGeminiCode(code: String, codeVerifier: String, redirectURI: String, providerId: String) async -> Bool {
         guard let url = URL(string: geminiTokenURL) else {
             authError = "Invalid token URL"
             isAuthenticating = false
@@ -449,7 +467,8 @@ final class OAuthService: ObservableObject {
             URLQueryItem(name: "code", value: code),
             URLQueryItem(name: "redirect_uri", value: redirectURI),
             URLQueryItem(name: "client_id", value: geminiClientId),
-            URLQueryItem(name: "client_secret", value: geminiClientSecret)
+            URLQueryItem(name: "client_secret", value: geminiClientSecret),
+            URLQueryItem(name: "code_verifier", value: codeVerifier)
         ]
         request.httpBody = components.query?.data(using: .utf8)
 
