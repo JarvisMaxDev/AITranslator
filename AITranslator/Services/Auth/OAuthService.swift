@@ -506,12 +506,24 @@ final class OAuthService: ObservableObject {
             }
 
             let expiresIn = json["expires_in"] as? TimeInterval ?? 3600
-            let tokens = OAuthTokens(
+            var tokens = OAuthTokens(
                 accessToken: accessToken,
                 refreshToken: json["refresh_token"] as? String,
                 expiresAt: Date().addingTimeInterval(expiresIn),
                 tokenType: json["token_type"] as? String ?? "Bearer"
             )
+
+            // Code Assist onboarding: cloudcode-pa requires `cloudaicompanionProject`
+            // in every generateContent / streamGenerateContent request body. Without
+            // it the API returns 401, which used to look like a bad token and traps
+            // users in a re-OAuth loop. Fetch & store the project here.
+            if let project = await fetchGeminiCodeAssistProject(accessToken: accessToken) {
+                tokens.cloudaicompanionProject = project
+                AppLogger.info("OAuth", "Gemini Code Assist project resolved",
+                    details: project)
+            } else {
+                AppLogger.warning("OAuth", "Failed to resolve Gemini Code Assist project — translate will likely fail with 401")
+            }
 
             try keychain.saveOAuthTokens(tokens, forProvider: providerId)
             AppLogger.success("OAuth", "Gemini OAuth complete — tokens saved")
@@ -521,6 +533,107 @@ final class OAuthService: ObservableObject {
             authError = "Token exchange failed: \(error.localizedDescription)"
             isAuthenticating = false
             return false
+        }
+    }
+
+    /// Calls cloudcode-pa `:loadCodeAssist` to discover the user's Code Assist
+    /// project. If the user is not yet onboarded, falls back to `:onboardUser`
+    /// (free tier) which creates the association.
+    /// Returns the `cloudaicompanionProject` ID, or nil on failure.
+    /// Public so providers can backfill the project for tokens that were saved
+    /// before this field existed.
+    func fetchGeminiCodeAssistProject(accessToken: String) async -> String? {
+        // Step 1: loadCodeAssist
+        if let existing = await callLoadCodeAssist(accessToken: accessToken) {
+            return existing
+        }
+        // Step 2: not onboarded — try to onboard the account into the free tier
+        return await callOnboardUser(accessToken: accessToken)
+    }
+
+    private func callLoadCodeAssist(accessToken: String) async -> String? {
+        guard let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist") else {
+            return nil
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        // Body matches gemini-cli's CodeAssistServer client.
+        let body: [String: Any] = [
+            "metadata": [
+                "ideType": "IDE_UNSPECIFIED",
+                "platform": "PLATFORM_UNSPECIFIED",
+                "pluginType": "GEMINI"
+            ]
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                let body = String(data: data, encoding: .utf8) ?? "?"
+                AppLogger.error("OAuth", "loadCodeAssist failed", details: body)
+                return nil
+            }
+            // Response shape: { "cloudaicompanionProject": "...", "currentTier": {...}, "allowedTiers": [...] }
+            if let project = json["cloudaicompanionProject"] as? String, !project.isEmpty {
+                return project
+            }
+            return nil
+        } catch {
+            AppLogger.error("OAuth", "loadCodeAssist network error", details: error.localizedDescription)
+            return nil
+        }
+    }
+
+    private func callOnboardUser(accessToken: String) async -> String? {
+        guard let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:onboardUser") else {
+            return nil
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        let body: [String: Any] = [
+            "tierId": "free-tier",
+            "metadata": [
+                "ideType": "IDE_UNSPECIFIED",
+                "platform": "PLATFORM_UNSPECIFIED",
+                "pluginType": "GEMINI"
+            ]
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return nil
+            }
+            // onboardUser returns a long-running operation: { "name": "...", "done": true, "response": { "cloudaicompanionProject": {...} } }
+            if let response = json["response"] as? [String: Any] {
+                if let project = response["cloudaicompanionProject"] as? String, !project.isEmpty {
+                    return project
+                }
+                if let projectObj = response["cloudaicompanionProject"] as? [String: Any],
+                   let projectId = projectObj["id"] as? String, !projectId.isEmpty {
+                    return projectId
+                }
+            }
+            // Some variants return at top level
+            if let project = json["cloudaicompanionProject"] as? String, !project.isEmpty {
+                return project
+            }
+            AppLogger.error("OAuth", "onboardUser response missing cloudaicompanionProject",
+                details: String(data: data, encoding: .utf8) ?? "?")
+            return nil
+        } catch {
+            AppLogger.error("OAuth", "onboardUser network error", details: error.localizedDescription)
+            return nil
         }
     }
 
@@ -561,7 +674,9 @@ final class OAuthService: ObservableObject {
             accessToken: accessToken,
             refreshToken: json["refresh_token"] as? String ?? refreshToken,
             expiresAt: Date().addingTimeInterval(expiresIn),
-            tokenType: json["token_type"] as? String ?? "Bearer"
+            tokenType: json["token_type"] as? String ?? "Bearer",
+            // Project ID is independent of token lifetime — preserve it across refreshes.
+            cloudaicompanionProject: tokens.cloudaicompanionProject
         )
 
         try keychain.saveOAuthTokens(newTokens, forProvider: providerId)

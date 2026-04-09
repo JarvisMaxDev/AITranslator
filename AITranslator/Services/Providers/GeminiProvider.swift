@@ -48,6 +48,18 @@ final class GeminiProvider: AIProvider {
                 throw AIProviderError.tokenExpired
             }
         }
+        // Backfill cloudaicompanionProject for tokens saved before this field
+        // existed. Without it cloudcode-pa returns 401 on every request.
+        if tokens.cloudaicompanionProject == nil {
+            AppLogger.info("Gemini", "Backfilling Code Assist project for legacy token...")
+            if let project = await OAuthService.shared.fetchGeminiCodeAssistProject(accessToken: tokens.accessToken) {
+                tokens.cloudaicompanionProject = project
+                try? keychain.saveOAuthTokens(tokens, forProvider: config.id)
+                AppLogger.success("Gemini", "Code Assist project backfilled", details: project)
+            } else {
+                AppLogger.warning("Gemini", "Failed to backfill Code Assist project — request will likely fail")
+            }
+        }
         return tokens
     }
 
@@ -61,7 +73,7 @@ final class GeminiProvider: AIProvider {
         urlRequest.timeoutInterval = 60
 
         let systemPrompt = buildSystemPrompt(request: request)
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": config.model,
             "user_prompt_id": UUID().uuidString,
             "request": [
@@ -70,6 +82,11 @@ final class GeminiProvider: AIProvider {
                 "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]
             ] as [String: Any]
         ]
+        // cloudcode-pa requires the user's Code Assist project (resolved during OAuth via :loadCodeAssist).
+        // Without it the API returns 401 even for valid tokens.
+        if let project = freshTokens.cloudaicompanionProject {
+            body["project"] = project
+        }
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
         AppLogger.request("Gemini", "POST \(url.absoluteString)")
 
@@ -187,7 +204,7 @@ final class GeminiProvider: AIProvider {
         urlRequest.timeoutInterval = 60
 
         let systemPrompt = buildSystemPrompt(request: request)
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": config.model,
             "user_prompt_id": UUID().uuidString,
             "request": [
@@ -196,6 +213,10 @@ final class GeminiProvider: AIProvider {
                 "generationConfig": ["temperature": 0.3, "maxOutputTokens": 4096]
             ] as [String: Any]
         ]
+        // See translateWithOAuth: cloudcode-pa requires `project` from :loadCodeAssist.
+        if let project = freshTokens.cloudaicompanionProject {
+            body["project"] = project
+        }
         urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
         AppLogger.request("Gemini", "POST stream \(url.absoluteString)")
 

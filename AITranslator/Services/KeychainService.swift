@@ -120,6 +120,11 @@ struct OAuthTokens: Codable {
     var tokenType: String?
     /// The API base URL to use with this token (from Qwen's `resource_url` field)
     var resourceURL: String?
+    /// Gemini Code Assist project ID, fetched via `:loadCodeAssist`/`:onboardUser`
+    /// after OAuth. Required as `project` field in every `:generateContent` /
+    /// `:streamGenerateContent` request to cloudcode-pa.googleapis.com — without
+    /// it the API returns 401 even for valid tokens.
+    var cloudaicompanionProject: String?
 
     var isExpired: Bool {
         guard let expiresAt else { return false }
