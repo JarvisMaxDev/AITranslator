@@ -21,7 +21,7 @@ protocol AIProvider {
 extension AIProvider {
     func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 do {
                     let response = try await self.translate(request)
                     continuation.yield(response.translatedText)
@@ -29,6 +29,9 @@ extension AIProvider {
                 } catch {
                     continuation.finish(throwing: error)
                 }
+            }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
             }
         }
     }

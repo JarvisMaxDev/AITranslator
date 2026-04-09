@@ -280,7 +280,7 @@ final class OpenAIProvider: AIProvider {
 
     func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 do {
                     if let tokens = self.keychain.getOAuthTokens(forProvider: self.config.id) {
                         do {
@@ -303,6 +303,9 @@ final class OpenAIProvider: AIProvider {
                 } catch {
                     continuation.finish(throwing: error)
                 }
+            }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
             }
         }
     }

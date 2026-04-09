@@ -158,7 +158,7 @@ final class GeminiProvider: AIProvider {
 
     func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 do {
                     if self.keychain.getOAuthTokens(forProvider: self.config.id) != nil {
                         try await self.streamWithOAuth(request: request, continuation: continuation)
@@ -170,6 +170,9 @@ final class GeminiProvider: AIProvider {
                 } catch {
                     continuation.finish(throwing: error)
                 }
+            }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
             }
         }
     }

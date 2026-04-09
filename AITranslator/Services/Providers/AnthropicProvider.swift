@@ -119,7 +119,7 @@ final class AnthropicProvider: AIProvider {
 
     func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 do {
                     let url = URL(string: "\(self.config.baseURL)/messages")!
                     var urlRequest = URLRequest(url: url)
@@ -178,6 +178,9 @@ final class AnthropicProvider: AIProvider {
                 } catch {
                     continuation.finish(throwing: error)
                 }
+            }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
             }
         }
     }

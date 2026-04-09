@@ -156,7 +156,7 @@ final class QwenProvider: AIProvider {
 
     func translateStream(_ request: TranslationRequest) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 do {
                     let (authHeader, baseURL, modelName) = try await self.getAuthConfig()
 
@@ -189,7 +189,11 @@ final class QwenProvider: AIProvider {
                     }
                     if httpResponse.statusCode == 401 { throw AIProviderError.tokenExpired }
                     guard httpResponse.statusCode == 200 else {
-                        throw AIProviderError.apiError("Qwen stream error (\(httpResponse.statusCode))")
+                        // Log full error body so we can diagnose 400s after refresh
+                        var errorBody = ""
+                        for try await line in bytes.lines { errorBody += line + "\n" }
+                        AppLogger.error("Qwen", "Stream error (\(httpResponse.statusCode))", details: errorBody)
+                        throw AIProviderError.apiError("Qwen stream error (\(httpResponse.statusCode)): \(errorBody)")
                     }
 
                     for try await line in bytes.lines {
@@ -201,6 +205,9 @@ final class QwenProvider: AIProvider {
                 } catch {
                     continuation.finish(throwing: error)
                 }
+            }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
             }
         }
     }
