@@ -15,6 +15,9 @@ final class SettingsViewModel: ObservableObject {
     let oauthService = OAuthService.shared
     private let keychain = KeychainService.shared
     private var cancellables = Set<AnyCancellable>()
+    /// Set via observeModelCatalog() so the .local provider's dropdown can show
+    /// downloaded models from the catalog instead of the hardcoded stub.
+    private weak var modelCatalog: ModelCatalog?
     /// In-flight OAuth Task. Stored so cancelAuth() can actually cancel it
     /// (Qwen polling Task.sleep + Anthropic/OpenAI/Gemini waitForCallback both
     /// react to Task cancellation; the localhost socket is also closed via
@@ -32,14 +35,43 @@ final class SettingsViewModel: ObservableObject {
             .assign(to: &$authUserCode)
     }
 
-    /// Observe ModelCatalog changes to keep local provider auth in sync
+    /// Observe ModelCatalog changes to keep local provider auth in sync and
+    /// to refresh the local provider's model dropdown when downloads complete.
     func observeModelCatalog(_ catalog: ModelCatalog) {
         cancellables.removeAll()
+        modelCatalog = catalog
+
         catalog.$activeModelId
             .sink { [weak self] activeId in
                 self?.syncLocalProviderAuth(hasActiveModel: activeId != nil)
+                // Refresh local providers' fetched model lists so the dropdown
+                // updates when the user activates/deactivates a model.
+                self?.refreshLocalProvidersModels()
             }
             .store(in: &cancellables)
+
+        catalog.$modelStates
+            .sink { [weak self] _ in
+                // A download finished or a model was removed → rebuild the local
+                // provider's dropdown so it reflects on-disk reality.
+                self?.refreshLocalProvidersModels()
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Rebuild the cached model list for every .local provider config.
+    private func refreshLocalProvidersModels() {
+        for config in providerConfigs where config.type == .local {
+            fetchModels(forProvider: config.id)
+        }
+    }
+
+    /// Activate the given local model id in the catalog (called from Settings
+    /// when the user changes the .local provider's dropdown selection).
+    func selectLocalModel(id: String) {
+        guard let catalog = modelCatalog,
+              let model = catalog.models.first(where: { $0.id == id }) else { return }
+        catalog.selectModel(model)
     }
 
     /// Update isAuthenticated for all .local providers based on model availability
@@ -75,9 +107,22 @@ final class SettingsViewModel: ObservableObject {
                 fetchedModels[id] = config.type.availableModels
                 return
             }
-        case .qwen, .local:
-            // These use hardcoded lists — no API needed
+        case .qwen:
+            // Hardcoded list — no API needed
             fetchedModels[id] = config.type.availableModels
+            return
+        case .local:
+            // Show DOWNLOADED models from ModelCatalog (not the hardcoded
+            // single-entry stub from ProviderType.availableModels).
+            if let catalog = modelCatalog {
+                let downloaded = catalog.models.filter { model in
+                    let state = catalog.modelStates[model.id]
+                    return state == .downloaded || state == .active
+                }
+                fetchedModels[id] = downloaded.map { (id: $0.id, name: $0.name) }
+            } else {
+                fetchedModels[id] = []
+            }
             return
         }
 
@@ -124,8 +169,18 @@ final class SettingsViewModel: ObservableObject {
         // Only use hardcoded for providers without dynamic model API
         guard let config = providerConfigs.first(where: { $0.id == id }) else { return [] }
         switch config.type {
-        case .qwen, .gemini, .local:
+        case .qwen, .gemini:
             return config.type.availableModels
+        case .local:
+            // Build downloaded list on demand if observeModelCatalog hasn't run yet
+            if let catalog = modelCatalog {
+                let downloaded = catalog.models.filter { model in
+                    let state = catalog.modelStates[model.id]
+                    return state == .downloaded || state == .active
+                }
+                return downloaded.map { (id: $0.id, name: $0.name) }
+            }
+            return []
         case .openai, .anthropic:
             // Dynamic models — empty until authenticated and fetched
             return []

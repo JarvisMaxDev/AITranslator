@@ -414,11 +414,25 @@ struct SettingsView: View {
                 HStack(alignment: .center, spacing: 12) {
                     // Model Picker
                     Picker("", selection: Binding(
-                        get: { config.model },
+                        get: {
+                            // For local provider, the source of truth is ModelCatalog.activeModelId,
+                            // not config.model — fall back to whichever is non-empty.
+                            if config.type == .local,
+                               let activeId = modelCatalog.activeModelId {
+                                return activeId
+                            }
+                            return config.model
+                        },
                         set: { newModel in
                             if let idx = draftConfigs.firstIndex(where: { $0.id == config.id }) {
                                 draftConfigs[idx].model = newModel
                                 hasChanges = true
+                            }
+                            // For local provider, also commit to the catalog so
+                            // LocalModelProvider (which reads catalog.activeModelId)
+                            // picks up the change immediately.
+                            if config.type == .local {
+                                settingsViewModel.selectLocalModel(id: newModel)
                             }
                         }
                     )) {
