@@ -15,6 +15,11 @@ final class SettingsViewModel: ObservableObject {
     let oauthService = OAuthService.shared
     private let keychain = KeychainService.shared
     private var cancellables = Set<AnyCancellable>()
+    /// In-flight OAuth Task. Stored so cancelAuth() can actually cancel it
+    /// (Qwen polling Task.sleep + Anthropic/OpenAI/Gemini waitForCallback both
+    /// react to Task cancellation; the localhost socket is also closed via
+    /// OAuthService.cancelAuth which unblocks the underlying accept()).
+    private var authTask: Task<Void, Never>?
 
     init() {
         loadConfigs()
@@ -177,45 +182,57 @@ final class SettingsViewModel: ObservableObject {
 
     /// Start OAuth flow for a provider
     func startOAuth(forProvider id: String) {
+        // Re-entrancy guard: do not spawn a second flow on top of an in-flight one.
+        // Without this, mashing Connect would queue duplicate Tasks and (for OpenAI)
+        // bind the fixed callback port 1455 twice → port collision crash.
+        guard !isAuthenticating else { return }
         guard let config = providerConfigs.first(where: { $0.id == id }) else { return }
 
         isAuthenticating = true
         authError = nil
         authUserCode = nil
 
-        Task {
+        authTask = Task { [weak self] in
+            guard let self else { return }
             var success = false
 
             switch config.type {
             case .qwen:
                 // userCode is delivered via Combine binding to $authUserCode
                 // while the flow is running — see init().
-                success = await oauthService.startQwenOAuth(providerId: id)
+                success = await self.oauthService.startQwenOAuth(providerId: id)
             case .anthropic:
-                success = await oauthService.startAnthropicOAuth(providerId: id)
+                success = await self.oauthService.startAnthropicOAuth(providerId: id)
             case .openai:
-                success = await oauthService.startOpenAIOAuth(providerId: id)
+                success = await self.oauthService.startOpenAIOAuth(providerId: id)
             case .gemini:
-                success = await oauthService.startGeminiOAuth(providerId: id)
+                success = await self.oauthService.startGeminiOAuth(providerId: id)
             case .local:
                 // No auth needed — model management handled separately
                 break
             }
 
-            if success {
-                if let index = providerConfigs.firstIndex(where: { $0.id == id }) {
-                    providerConfigs[index].isAuthenticated = true
-                    providerConfigs[index].authMethod = .oauth
-                    saveConfigs()
-                    // Fetch dynamic models now that we have credentials
-                    fetchModels(forProvider: id)
-                }
-            } else {
-                authError = oauthService.authError
+            // If the user cancelled, stay quiet — no error toast, no model refetch.
+            if Task.isCancelled {
+                self.isAuthenticating = false
+                self.authTask = nil
+                return
             }
 
-            isAuthenticating = false
-            authUserCode = nil
+            if success {
+                if let index = self.providerConfigs.firstIndex(where: { $0.id == id }) {
+                    self.providerConfigs[index].isAuthenticated = true
+                    self.providerConfigs[index].authMethod = .oauth
+                    self.saveConfigs()
+                    // Fetch dynamic models now that we have credentials
+                    self.fetchModels(forProvider: id)
+                }
+            } else {
+                self.authError = self.oauthService.authError
+            }
+
+            self.isAuthenticating = false
+            self.authTask = nil
         }
     }
 
@@ -273,6 +290,11 @@ final class SettingsViewModel: ObservableObject {
 
     /// Cancel ongoing authentication
     func cancelAuth() {
+        // Cancel our enclosing Task first — this propagates to Qwen polling's
+        // Task.sleep, which throws CancellationError immediately. Then close the
+        // localhost socket so any waiting accept() also unwinds.
+        authTask?.cancel()
+        authTask = nil
         oauthService.cancelAuth()
         isAuthenticating = false
         authUserCode = nil

@@ -13,7 +13,10 @@ final class OAuthService: ObservableObject {
     @Published var verificationURL: String?
 
     private let keychain = KeychainService.shared
-    private var pollingTask: Task<Void, Never>?
+    /// Tracks the active LocalCallbackServer for the in-flight AuthCode flow so
+    /// `cancelAuth()` can stop it (which unblocks `accept()` with EBADF and lets
+    /// the awaiting Task unwind through its `defer { stop() }`).
+    private var activeCallbackServer: LocalCallbackServer?
 
     // MARK: - Qwen OAuth Constants (from QwenLM/qwen-code source)
 
@@ -93,7 +96,13 @@ final class OAuthService: ObservableObject {
         authError = nil
 
         let callbackServer = LocalCallbackServer()
-        defer { callbackServer.stop() }
+        activeCallbackServer = callbackServer
+        defer {
+            callbackServer.stop()
+            if activeCallbackServer === callbackServer {
+                activeCallbackServer = nil
+            }
+        }
 
         do {
             // Step 1: Generate PKCE pair and state
@@ -245,7 +254,13 @@ final class OAuthService: ObservableObject {
         authError = nil
 
         let callbackServer = LocalCallbackServer()
-        defer { callbackServer.stop() }
+        activeCallbackServer = callbackServer
+        defer {
+            callbackServer.stop()
+            if activeCallbackServer === callbackServer {
+                activeCallbackServer = nil
+            }
+        }
 
         do {
             // Step 1: Generate PKCE pair and state
@@ -394,7 +409,13 @@ final class OAuthService: ObservableObject {
         authError = nil
 
         let callbackServer = LocalCallbackServer()
-        defer { callbackServer.stop() }
+        activeCallbackServer = callbackServer
+        defer {
+            callbackServer.stop()
+            if activeCallbackServer === callbackServer {
+                activeCallbackServer = nil
+            }
+        }
 
         do {
             // PKCE: required by Google OAuth2 best practice for installed apps
@@ -693,14 +714,19 @@ final class OAuthService: ObservableObject {
 
     func disconnect(providerId: String) {
         keychain.deleteCredentials(forProvider: providerId)
-        pollingTask?.cancel()
     }
 
+    /// Cancel the in-flight OAuth flow.
+    /// Closes the localhost callback socket so `accept()` returns EBADF and the
+    /// awaiting Task unwinds. The caller (e.g. SettingsViewModel) should also
+    /// cancel its own enclosing Task to abort Qwen's polling loop.
     func cancelAuth() {
-        pollingTask?.cancel()
+        activeCallbackServer?.stop()
+        activeCallbackServer = nil
         isAuthenticating = false
         userCode = nil
         verificationURL = nil
+        authError = nil
     }
 
     // MARK: - Qwen Device Code Implementation
