@@ -366,7 +366,13 @@ final class ModelCatalog: ObservableObject {
         let path = modelPath(for: model)
         do {
             try FileManager.default.removeItem(atPath: path)
-            modelStates[model.id] = .notDownloaded
+            // Custom models: remove from catalog entirely.
+            // Built-in models: revert to notDownloaded.
+            if !model.isBuiltIn {
+                removeFromCatalog(model)
+            } else {
+                modelStates[model.id] = .notDownloaded
+            }
             // Deselect if this was the active model.
             if activeModelId == model.id {
                 activeModelId = nil
@@ -376,6 +382,20 @@ final class ModelCatalog: ObservableObject {
         } catch {
             AppLogger.error("ModelCatalog", "Failed to delete model", details: error.localizedDescription)
         }
+    }
+
+    /// Remove a custom model from the catalog without deleting its file.
+    /// Used when a model was added but never downloaded.
+    func removeCustomModel(_ model: LocalModel) {
+        guard !model.isBuiltIn else { return }
+        removeFromCatalog(model)
+        AppLogger.info("ModelCatalog", "Custom model removed from catalog", details: model.name)
+    }
+
+    private func removeFromCatalog(_ model: LocalModel) {
+        models.removeAll { $0.id == model.id }
+        modelStates.removeValue(forKey: model.id)
+        persistCustomModels()
     }
 
     // MARK: - Selection

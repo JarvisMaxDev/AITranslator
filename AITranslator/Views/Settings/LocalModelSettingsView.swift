@@ -180,11 +180,21 @@ struct LocalModelSettingsView: View {
     private func actionButtons(for model: LocalModel, state: ModelState) -> some View {
         switch state {
         case .notDownloaded:
-            Button(NSLocalizedString("action.download", comment: "Download")) {
-                catalog.downloadModel(model)
+            HStack(spacing: 6) {
+                Button(NSLocalizedString("action.download", comment: "Download")) {
+                    catalog.downloadModel(model)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+
+                if !model.isBuiltIn {
+                    Button(action: { catalog.removeCustomModel(model) }) {
+                        Image(systemName: "trash")
+                            .foregroundStyle(.red.opacity(0.8))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
 
         case .downloading(let progress):
             HStack(spacing: 8) {
