@@ -621,7 +621,7 @@ struct SettingsView: View {
                 .fontWeight(.semibold)
 
             VStack(spacing: 12) {
-                ForEach(ProviderType.allCases) { type in
+                ForEach(ProviderType.allCases.filter(\.isAvailable)) { type in
                     Button(action: {
                         // Persist immediately so OAuth/API key flows can find this provider
                         settingsViewModel.addProvider(type: type)

@@ -72,6 +72,18 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Whether this provider is currently available for new connections.
+    /// Kept in enum (not deleted) for backward compatibility with saved configs.
+    var isAvailable: Bool {
+        switch self {
+        case .qwen: return false // OAuth discontinued 2026-04-15 by Alibaba
+        case .anthropic: return true
+        case .openai: return true
+        case .gemini: return true
+        case .local: return true
+        }
+    }
+
     var supportsOAuth: Bool {
         switch self {
         case .qwen: return true
