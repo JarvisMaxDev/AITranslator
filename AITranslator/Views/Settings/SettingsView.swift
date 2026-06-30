@@ -179,8 +179,25 @@ struct SettingsView: View {
 
     private var localModelsTab: some View {
         ScrollView {
-            LocalModelSettingsView(catalog: modelCatalog)
+            LocalModelSettingsView(
+                catalog: modelCatalog,
+                selectedModelId: draftLocalModelId,
+                onUseModel: selectDraftLocalModel
+            )
                 .padding(24)
+        }
+    }
+
+    private var draftLocalModelId: String? {
+        draftConfigs.first(where: { $0.type == .local })?.model ?? modelCatalog.activeModelId
+    }
+
+    private func selectDraftLocalModel(_ model: LocalModel) {
+        if let idx = draftConfigs.firstIndex(where: { $0.type == .local }) {
+            draftConfigs[idx].model = model.id
+            hasChanges = true
+        } else {
+            modelCatalog.selectModel(model)
         }
     }
 

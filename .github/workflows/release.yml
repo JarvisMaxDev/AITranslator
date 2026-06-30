@@ -266,7 +266,7 @@ jobs:
           SHA256=$(shasum -a 256 build/Release/AITranslator.dmg | awk '{print $1}')
           echo "📦 Updating Cask to v${VERSION} (sha256: ${SHA256})"
 
-          git clone https://${TAP_TOKEN}@github.com/JarvisMaxDev/homebrew-tap.git /tmp/tap
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/JarvisMaxDev/homebrew-tap.git /tmp/tap
           cd /tmp/tap
 
           cat > Casks/aitranslator.rb << CASKEOF

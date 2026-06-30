@@ -7,6 +7,9 @@ import SwiftUI
 /// models from HuggingFace.
 struct LocalModelSettingsView: View {
     @ObservedObject var catalog: ModelCatalog
+    let selectedModelId: String?
+    let onUseModel: (LocalModel) -> Void
+
     @State private var customRepoInput = ""
     @State private var showCustomModelField = false
     @State private var isResolvingCustomModel = false
@@ -132,7 +135,7 @@ struct LocalModelSettingsView: View {
 
     @ViewBuilder
     private func modelRow(_ model: LocalModel) -> some View {
-        let state = catalog.modelStates[model.id] ?? .notDownloaded
+        let state = displayState(for: model)
 
         HStack(spacing: 12) {
             // Status indicator
@@ -185,6 +188,18 @@ struct LocalModelSettingsView: View {
     }
 
     // MARK: - Status Icon
+
+    private func displayState(for model: LocalModel) -> ModelState {
+        let state = catalog.modelStates[model.id] ?? .notDownloaded
+        guard let selectedModelId else { return state }
+
+        switch state {
+        case .downloaded, .active:
+            return model.id == selectedModelId ? .active : .downloaded
+        case .notDownloaded, .downloading:
+            return state
+        }
+    }
 
     @ViewBuilder
     private func statusIcon(for state: ModelState) -> some View {
@@ -244,7 +259,7 @@ struct LocalModelSettingsView: View {
         case .downloaded:
             HStack(spacing: 6) {
                 Button(NSLocalizedString("settings.use", comment: "Use")) {
-                    catalog.selectModel(model)
+                    onUseModel(model)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
