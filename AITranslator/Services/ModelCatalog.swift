@@ -24,6 +24,32 @@ struct LocalModel: Identifiable, Codable, Equatable {
     let isBuiltIn: Bool
 }
 
+// MARK: - GGUFModelCandidate
+
+enum GGUFSourceKind: String, Sendable {
+    case direct
+    case sameOwner
+    case ggml
+    case trusted
+    case community
+}
+
+/// A concrete downloadable GGUF file resolved from a HuggingFace model page.
+struct GGUFModelCandidate: Identifiable, Equatable, Sendable {
+    let repo: String
+    let remoteFileName: String
+    let localFileName: String
+    let downloadURL: String
+    let modelName: String
+    let description: String
+    let sourceKind: GGUFSourceKind
+    let sortRank: Int
+    let fileRank: Int
+    let downloadCount: Int
+
+    var id: String { "\(repo)|\(remoteFileName)" }
+}
+
 // MARK: - ModelState
 
 /// Lifecycle state of a catalog model.
@@ -77,6 +103,28 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
         onCompletion = nil
     }
 
+    private func takeCompletionState() -> (
+        model: LocalModel?,
+        directory: URL?,
+        completion: (@Sendable (Result<URL, Error>) -> Void)?
+    ) {
+        lock.lock()
+        defer { lock.unlock() }
+        let model = targetModel
+        let directory = modelsDirectory
+        let completion = onCompletion
+        onCompletion = nil
+        return (model: model, directory: directory, completion: completion)
+    }
+
+    private func takeCompletion() -> (@Sendable (Result<URL, Error>) -> Void)? {
+        lock.lock()
+        defer { lock.unlock() }
+        let completion = onCompletion
+        onCompletion = nil
+        return completion
+    }
+
     // MARK: URLSessionDownloadDelegate
 
     func urlSession(
@@ -99,27 +147,41 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        lock.lock()
-        let model = targetModel
-        let directory = modelsDirectory
-        let completion = onCompletion
-        lock.unlock()
+        let (model, directory, completion) = takeCompletionState()
+        guard let completion else {
+            reset()
+            return
+        }
+
+        if let httpResponse = downloadTask.response as? HTTPURLResponse,
+           !(200...299).contains(httpResponse.statusCode) {
+            completion(.failure(CatalogError.huggingFaceAPIFailed(httpResponse.statusCode)))
+            reset()
+            return
+        }
 
         guard let model, let directory else {
-            completion?(.failure(CatalogError.delegateNotConfigured))
+            completion(.failure(CatalogError.delegateNotConfigured))
             reset()
             return
         }
 
         let destination = directory.appendingPathComponent(model.fileName)
         do {
+            let handle = try FileHandle(forReadingFrom: location)
+            defer { try? handle.close() }
+            let header = try handle.read(upToCount: 4) ?? Data()
+            guard header == Data("GGUF".utf8) else {
+                throw CatalogError.invalidGGUFDownload(model.fileName)
+            }
+
             if FileManager.default.fileExists(atPath: destination.path) {
                 try FileManager.default.removeItem(at: destination)
             }
             try FileManager.default.moveItem(at: location, to: destination)
-            completion?(.success(destination))
+            completion(.success(destination))
         } catch {
-            completion?(.failure(error))
+            completion(.failure(error))
         }
         reset()
     }
@@ -133,11 +195,9 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
         let nsError = error as NSError
         guard nsError.code != NSURLErrorCancelled else { return }
 
-        lock.lock()
-        let completion = onCompletion
-        lock.unlock()
+        guard let completion = takeCompletion() else { return }
 
-        completion?(.failure(error))
+        completion(.failure(error))
         reset()
     }
 }
@@ -147,8 +207,13 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
 /// Errors produced by ``ModelCatalog``.
 enum CatalogError: LocalizedError {
     case invalidURL(String)
+    case invalidRepositoryInput(String)
     case huggingFaceAPIFailed(Int)
     case noGGUFFileFound(String)
+    case noCompatibleGGUFFileFound(String)
+    case onlyUnsupportedGGUFFilesFound(String)
+    case onlyRuntimeUnsupportedGGUFFilesFound(String)
+    case invalidGGUFDownload(String)
     case delegateNotConfigured
     case downloadAlreadyInProgress
 
@@ -156,10 +221,20 @@ enum CatalogError: LocalizedError {
         switch self {
         case .invalidURL(let url):
             return "Invalid URL: \(url)"
+        case .invalidRepositoryInput(let input):
+            return "Enter a HuggingFace model in owner/repo format or paste a huggingface.co model URL: \(input)"
         case .huggingFaceAPIFailed(let status):
             return "HuggingFace API returned HTTP \(status)"
         case .noGGUFFileFound(let repo):
             return "No .gguf file found in repository: \(repo)"
+        case .noCompatibleGGUFFileFound(let repo):
+            return "No compatible GGUF conversion found for: \(repo)"
+        case .onlyUnsupportedGGUFFilesFound(let repo):
+            return "Only unsupported GGUF files were found for: \(repo). Split GGUF, mmproj, and MTP files are not supported yet."
+        case .onlyRuntimeUnsupportedGGUFFilesFound(let repo):
+            return "GGUF files were found for \(repo), but they require a newer local inference runtime than the bundled llama.cpp. Try Gemma 3 or Qwen GGUF for now."
+        case .invalidGGUFDownload(let fileName):
+            return "Downloaded file is not a valid GGUF model: \(fileName)"
         case .delegateNotConfigured:
             return "Download delegate was not configured before use"
         case .downloadAlreadyInProgress:
@@ -206,6 +281,20 @@ final class ModelCatalog: ObservableObject {
 
     private var activeDownloadTask: URLSessionDownloadTask?
     private let delegate = DownloadDelegate()
+    private lazy var cachedModelsDirectory: URL = {
+        let appSupport = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = appSupport
+            .appendingPathComponent("AITranslator", isDirectory: true)
+            .appendingPathComponent("models", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(
+                at: dir,
+                withIntermediateDirectories: true
+            )
+        }
+        return dir
+    }()
     private lazy var session: URLSession = {
         URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
     }()
@@ -265,18 +354,7 @@ final class ModelCatalog: ObservableObject {
     ///
     /// Created on first access if it does not already exist.
     var modelsDirectory: URL {
-        let appSupport = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = appSupport
-            .appendingPathComponent("AITranslator", isDirectory: true)
-            .appendingPathComponent("models", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: dir.path) {
-            try? FileManager.default.createDirectory(
-                at: dir,
-                withIntermediateDirectories: true
-            )
-        }
-        return dir
+        cachedModelsDirectory
     }
 
     /// Full file-system path to the GGUF file for the given model.
@@ -364,22 +442,28 @@ final class ModelCatalog: ObservableObject {
     /// - Parameter model: The model whose file should be removed.
     func deleteModel(_ model: LocalModel) {
         let path = modelPath(for: model)
+
+        guard FileManager.default.fileExists(atPath: path) else {
+            markModelNotDownloaded(model)
+            AppLogger.info("ModelCatalog", "Model file already missing", details: model.fileName)
+            return
+        }
+
         do {
             try FileManager.default.removeItem(atPath: path)
             // Custom models: remove from catalog entirely.
             // Built-in models: revert to notDownloaded.
             if !model.isBuiltIn {
                 removeFromCatalog(model)
+                clearActiveModelIfNeeded(model.id)
             } else {
-                modelStates[model.id] = .notDownloaded
-            }
-            // Deselect if this was the active model.
-            if activeModelId == model.id {
-                activeModelId = nil
-                UserDefaults.standard.removeObject(forKey: DefaultsKey.activeModelId)
+                markModelNotDownloaded(model)
             }
             AppLogger.info("ModelCatalog", "Model deleted", details: model.fileName)
         } catch {
+            if !FileManager.default.fileExists(atPath: path) {
+                markModelNotDownloaded(model)
+            }
             AppLogger.error("ModelCatalog", "Failed to delete model", details: error.localizedDescription)
         }
     }
@@ -430,7 +514,11 @@ final class ModelCatalog: ObservableObject {
     func addCustomModel(huggingFaceRepo: String) {
         Task {
             do {
-                let model = try await resolveCustomModel(repo: huggingFaceRepo)
+                let candidates = try await resolveCustomModelCandidates(huggingFaceInput: huggingFaceRepo)
+                guard let candidate = candidates.first else {
+                    throw CatalogError.noCompatibleGGUFFileFound(huggingFaceRepo)
+                }
+                let model = makeLocalModel(from: candidate)
                 if !models.contains(where: { $0.id == model.id }) {
                     models.append(model)
                     persistCustomModels()
@@ -441,6 +529,73 @@ final class ModelCatalog: ObservableObject {
                 AppLogger.error("ModelCatalog", "Failed to add custom model", details: error.localizedDescription)
             }
         }
+    }
+
+    /// Add a user-selected GGUF candidate to the catalog and start downloading it.
+    func addCustomModel(_ candidate: GGUFModelCandidate) {
+        let model = makeLocalModel(from: candidate)
+        if !models.contains(where: { $0.id == model.id }) {
+            models.append(model)
+            persistCustomModels()
+        }
+        downloadModel(model)
+    }
+
+    /// Resolve compatible GGUF files for a HuggingFace model id or URL.
+    func resolveCustomModelCandidates(huggingFaceInput: String) async throws -> [GGUFModelCandidate] {
+        let sourceRepo = try normalizeHuggingFaceRepo(huggingFaceInput)
+        let sourceModel = try await fetchHuggingFaceModel(repo: sourceRepo)
+        var candidates: [GGUFModelCandidate] = []
+        var unsupportedGGUFCount = 0
+        var runtimeUnsupportedGGUFCount = 0
+
+        let baseRepos = baseModelRepos(from: sourceModel)
+        let referenceRepos = uniqueValues([sourceRepo] + baseRepos)
+
+        let direct = buildGGUFCandidates(
+            from: sourceModel,
+            repo: sourceRepo,
+            sourceRepo: sourceRepo,
+            referenceRepos: referenceRepos
+        )
+        candidates.append(contentsOf: direct.candidates)
+        unsupportedGGUFCount += direct.unsupportedCount
+        runtimeUnsupportedGGUFCount += direct.runtimeUnsupportedCount
+
+        if candidates.isEmpty {
+            let reposToInspect = try await discoverGGUFRepos(
+                sourceRepo: sourceRepo,
+                referenceRepos: referenceRepos
+            )
+
+            for repo in reposToInspect where repo != sourceRepo {
+                let model = try? await fetchHuggingFaceModel(repo: repo)
+                guard let model else { continue }
+                let resolved = buildGGUFCandidates(
+                    from: model,
+                    repo: repo,
+                    sourceRepo: sourceRepo,
+                    referenceRepos: referenceRepos
+                )
+                candidates.append(contentsOf: resolved.candidates)
+                unsupportedGGUFCount += resolved.unsupportedCount
+                runtimeUnsupportedGGUFCount += resolved.runtimeUnsupportedCount
+            }
+        }
+
+        let sorted = sortedGGUFCandidates(candidates)
+
+        if sorted.isEmpty {
+            if runtimeUnsupportedGGUFCount > 0 {
+                throw CatalogError.onlyRuntimeUnsupportedGGUFFilesFound(sourceRepo)
+            }
+            if unsupportedGGUFCount > 0 {
+                throw CatalogError.onlyUnsupportedGGUFFilesFound(sourceRepo)
+            }
+            throw CatalogError.noCompatibleGGUFFileFound(sourceRepo)
+        }
+
+        return Array(sorted.prefix(40))
     }
 
     // MARK: - State refresh
@@ -465,6 +620,11 @@ final class ModelCatalog: ObservableObject {
             } else {
                 modelStates[model.id] = .notDownloaded
             }
+        }
+
+        if let activeModelId,
+           modelStates[activeModelId] == .notDownloaded || modelStates[activeModelId] == nil {
+            clearActiveModelIfNeeded(activeModelId)
         }
     }
 
@@ -491,15 +651,46 @@ final class ModelCatalog: ObservableObject {
             modelStates[model.id] = model.id == activeModelId ? .active : .downloaded
             AppLogger.success("ModelCatalog", "Download finished", details: model.fileName)
         case .failure(let error):
-            modelStates[model.id] = .notDownloaded
+            markModelNotDownloaded(model)
             downloadError = error.localizedDescription
             AppLogger.error("ModelCatalog", "Download failed", details: error.localizedDescription)
         }
     }
 
+    private func markModelNotDownloaded(_ model: LocalModel) {
+        modelStates[model.id] = .notDownloaded
+        clearActiveModelIfNeeded(model.id)
+    }
+
+    private func clearActiveModelIfNeeded(_ modelId: String) {
+        guard activeModelId == modelId else { return }
+        activeModelId = nil
+        UserDefaults.standard.removeObject(forKey: DefaultsKey.activeModelId)
+    }
+
+    private func makeLocalModel(from candidate: GGUFModelCandidate) -> LocalModel {
+        LocalModel(
+            id: "custom-\(Self.sanitizedIdentifier(candidate.repo))-\(Self.sanitizedIdentifier(candidate.remoteFileName))",
+            name: candidate.modelName,
+            fileName: candidate.localFileName,
+            downloadURL: candidate.downloadURL,
+            sizeBytes: 0,
+            description: candidate.description,
+            isBuiltIn: false
+        )
+    }
+
     /// Fetch HuggingFace model metadata and construct a `LocalModel` for the
-    /// first `.gguf` sibling found.
+    /// first compatible `.gguf` sibling found.
     private func resolveCustomModel(repo: String) async throws -> LocalModel {
+        let candidates = try await resolveCustomModelCandidates(huggingFaceInput: repo)
+        guard let candidate = candidates.first else {
+            throw CatalogError.noCompatibleGGUFFileFound(repo)
+        }
+        return makeLocalModel(from: candidate)
+    }
+
+    private func fetchHuggingFaceModel(repo: String) async throws -> [String: Any] {
         let apiURLString = "https://huggingface.co/api/models/\(repo)"
         guard let apiURL = URL(string: apiURLString) else {
             throw CatalogError.invalidURL(apiURLString)
@@ -512,45 +703,404 @@ final class ModelCatalog: ObservableObject {
             throw CatalogError.huggingFaceAPIFailed(httpResponse.statusCode)
         }
 
-        // HF API response shape: { "siblings": [{ "rfilename": "model.gguf" }] }
-        guard
-            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let siblings = json["siblings"] as? [[String: Any]]
-        else {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw CatalogError.noGGUFFileFound(repo)
         }
 
-        guard let sibling = siblings.first(where: {
-            ($0["rfilename"] as? String)?.hasSuffix(".gguf") == true
-        }),
-              let fileName = sibling["rfilename"] as? String
-        else {
-            throw CatalogError.noGGUFFileFound(repo)
+        return json
+    }
+
+    private func searchHuggingFaceGGUFModels(term: String) async throws -> [[String: Any]] {
+        guard var components = URLComponents(string: "https://huggingface.co/api/models") else {
+            throw CatalogError.invalidURL("https://huggingface.co/api/models")
+        }
+        components.queryItems = [
+            URLQueryItem(name: "filter", value: "gguf"),
+            URLQueryItem(name: "search", value: term),
+            URLQueryItem(name: "sort", value: "downloads"),
+            URLQueryItem(name: "direction", value: "-1"),
+            URLQueryItem(name: "limit", value: "30"),
+            URLQueryItem(name: "full", value: "true"),
+            URLQueryItem(name: "config", value: "true")
+        ]
+        guard let url = components.url else {
+            throw CatalogError.invalidURL(term)
         }
 
-        // Derive a stable id from the full repo path to avoid collisions
-        let repoName = repo.split(separator: "/").last.map(String.init) ?? repo
-        let sanitized = repo.lowercased()
+        let (data, response) = try await URLSession.shared.data(from: url)
+        if let httpResponse = response as? HTTPURLResponse,
+           httpResponse.statusCode != 200 {
+            throw CatalogError.huggingFaceAPIFailed(httpResponse.statusCode)
+        }
+
+        return (try JSONSerialization.jsonObject(with: data) as? [[String: Any]]) ?? []
+    }
+
+    func normalizeHuggingFaceRepo(_ input: String) throws -> String {
+        var value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("huggingface.co/") {
+            value = "https://\(value)"
+        }
+
+        if let url = URL(string: value),
+           let host = url.host?.lowercased(),
+           host == "huggingface.co" || host.hasSuffix(".huggingface.co") {
+            let components = url.pathComponents.filter { $0 != "/" }
+            if components.count >= 2 {
+                return try validatedHuggingFaceRepo(owner: components[0], name: components[1], input: input)
+            }
+        }
+
+        value = value.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let parts = value.split(separator: "/", omittingEmptySubsequences: true)
+        guard parts.count == 2 else {
+            throw CatalogError.invalidRepositoryInput(input)
+        }
+
+        return try validatedHuggingFaceRepo(owner: String(parts[0]), name: String(parts[1]), input: input)
+    }
+
+    private func validatedHuggingFaceRepo(owner: String, name: String, input: String) throws -> String {
+        guard isValidHuggingFaceRepoComponent(owner),
+              isValidHuggingFaceRepoComponent(name),
+              owner != ".", owner != "..",
+              name != ".", name != ".." else {
+            throw CatalogError.invalidRepositoryInput(input)
+        }
+        return "\(owner)/\(name)"
+    }
+
+    private func isValidHuggingFaceRepoComponent(_ value: String) -> Bool {
+        guard let first = value.unicodeScalars.first,
+              CharacterSet.alphanumerics.contains(first) else { return false }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        return value.unicodeScalars.allSatisfy { allowed.contains($0) }
+    }
+
+    private func discoverGGUFRepos(
+        sourceRepo: String,
+        referenceRepos: [String]
+    ) async throws -> [String] {
+        var repos: [String] = []
+        for repo in referenceRepos {
+            repos.append(contentsOf: generatedGGUFRepoCandidates(for: repo))
+        }
+
+        let searchTerms = uniqueValues(referenceRepos.map { repoName($0) })
+        let normalizedTerms = searchTerms.map(Self.normalizedForSearch)
+
+        for term in searchTerms {
+            let results = (try? await searchHuggingFaceGGUFModels(term: term)) ?? []
+            for result in results {
+                guard let repo = modelId(from: result), repo != sourceRepo else { continue }
+                let tags = result["tags"] as? [String] ?? []
+                let hasExactBase = referenceRepos.contains { reference in
+                    tags.contains("base_model:\(reference)") ||
+                    tags.contains("base_model:quantized:\(reference)")
+                }
+                let normalizedRepoName = Self.normalizedForSearch(repoName(repo))
+                let hasStrongNameMatch = normalizedTerms.contains { term in
+                    !term.isEmpty && normalizedRepoName.contains(term)
+                }
+
+                if hasExactBase || hasStrongNameMatch {
+                    repos.append(repo)
+                }
+            }
+        }
+
+        return uniqueValues(repos)
+    }
+
+    func generatedGGUFRepoCandidates(for repo: String) -> [String] {
+        let parts = repo.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return [] }
+        let owner = parts[0]
+        let name = parts[1]
+        var candidates = [
+            "\(owner)/\(name)-GGUF",
+            "\(owner)/\(name)-gguf"
+        ]
+
+        if name.hasSuffix("-unquantized") {
+            let stem = String(name.dropLast("-unquantized".count))
+            candidates.append("\(owner)/\(stem)-gguf")
+            candidates.append("\(owner)/\(stem)-GGUF")
+        }
+
+        if name.contains("-qat-q4_0-unquantized") {
+            let stem = name.replacingOccurrences(of: "-qat-q4_0-unquantized", with: "-qat-q4_0")
+            candidates.append("\(owner)/\(stem)-gguf")
+            candidates.append("\(owner)/\(stem)-GGUF")
+        }
+
+        return uniqueValues(candidates)
+    }
+
+    struct GGUFBuildResult {
+        let candidates: [GGUFModelCandidate]
+        let unsupportedCount: Int
+        let runtimeUnsupportedCount: Int
+    }
+
+    func buildGGUFCandidates(
+        from model: [String: Any],
+        repo: String,
+        sourceRepo: String,
+        referenceRepos: [String]
+    ) -> GGUFBuildResult {
+        let siblings = model["siblings"] as? [[String: Any]] ?? []
+        let tags = model["tags"] as? [String] ?? []
+        let downloads = model["downloads"] as? Int ?? 0
+        let sortRank = repositorySortRank(
+            repo: repo,
+            sourceRepo: sourceRepo,
+            referenceRepos: referenceRepos,
+            tags: tags
+        )
+        let sourceKind = sourceKind(
+            repo: repo,
+            sourceRepo: sourceRepo,
+            tags: tags
+        )
+
+        var unsupportedCount = 0
+        var runtimeUnsupportedCount = 0
+        let candidates: [GGUFModelCandidate] = siblings.compactMap { sibling in
+            guard let remoteFileName = sibling["rfilename"] as? String,
+                  remoteFileName.lowercased().hasSuffix(".gguf") else {
+                return nil
+            }
+
+            guard isSupportedMainGGUFFile(remoteFileName) else {
+                unsupportedCount += 1
+                return nil
+            }
+
+            guard isSupportedByBundledRuntime(repo: repo, remoteFileName: remoteFileName, tags: tags) else {
+                runtimeUnsupportedCount += 1
+                return nil
+            }
+
+            let fileRank = Self.ggufFileRank(remoteFileName)
+            let localFileName = safeLocalFileName(repo: repo, remoteFileName: remoteFileName)
+            let downloadURL = huggingFaceDownloadURL(repo: repo, remoteFileName: remoteFileName)
+            let quantization = Self.quantizationLabel(from: remoteFileName)
+            let name = [repoName(repo), quantization].filter { !$0.isEmpty }.joined(separator: " ")
+
+            return GGUFModelCandidate(
+                repo: repo,
+                remoteFileName: remoteFileName,
+                localFileName: localFileName,
+                downloadURL: downloadURL,
+                modelName: name,
+                description: "Custom GGUF from \(repo)",
+                sourceKind: sourceKind,
+                sortRank: sortRank,
+                fileRank: fileRank,
+                downloadCount: downloads
+            )
+        }
+
+        return GGUFBuildResult(
+            candidates: candidates,
+            unsupportedCount: unsupportedCount,
+            runtimeUnsupportedCount: runtimeUnsupportedCount
+        )
+    }
+
+    func sortedGGUFCandidates(_ candidates: [GGUFModelCandidate]) -> [GGUFModelCandidate] {
+        var seen = Set<String>()
+        return candidates
+            .filter { seen.insert($0.id).inserted }
+            .sorted {
+                if $0.sortRank != $1.sortRank { return $0.sortRank < $1.sortRank }
+                if $0.fileRank != $1.fileRank { return $0.fileRank < $1.fileRank }
+                if $0.downloadCount != $1.downloadCount { return $0.downloadCount > $1.downloadCount }
+                return $0.id < $1.id
+            }
+    }
+
+    private func repositorySortRank(
+        repo: String,
+        sourceRepo: String,
+        referenceRepos: [String],
+        tags: [String]
+    ) -> Int {
+        let sourceOwner = repoOwner(sourceRepo)
+        let owner = repoOwner(repo)
+        let hasSourceQuantizedTag = tags.contains("base_model:quantized:\(sourceRepo)")
+        let hasSourceTag = tags.contains("base_model:\(sourceRepo)")
+
+        if repo == sourceRepo { return 0 }
+        if owner == sourceOwner { return 10 }
+        if owner == "ggml-org" && (hasSourceQuantizedTag || hasSourceTag) { return 20 }
+        if hasSourceQuantizedTag { return 30 }
+        if hasSourceTag { return 40 }
+
+        for reference in referenceRepos where reference != sourceRepo {
+            let hasReferenceQuantizedTag = tags.contains("base_model:quantized:\(reference)")
+            let hasReferenceTag = tags.contains("base_model:\(reference)")
+            if owner == "ggml-org" && (hasReferenceQuantizedTag || hasReferenceTag) { return 50 }
+            if hasReferenceQuantizedTag { return 60 }
+            if hasReferenceTag { return 70 }
+        }
+
+        if owner == "ggml-org" { return 80 }
+        if let index = Self.trustedGGUFOwners.firstIndex(of: owner) {
+            return 90 + index
+        }
+        return 200
+    }
+
+    private func sourceKind(
+        repo: String,
+        sourceRepo: String,
+        tags: [String]
+    ) -> GGUFSourceKind {
+        let owner = repoOwner(repo)
+        if repo == sourceRepo { return .direct }
+        if owner == repoOwner(sourceRepo) { return .sameOwner }
+        if owner == "ggml-org" { return .ggml }
+        if tags.contains("base_model:\(sourceRepo)") ||
+            tags.contains("base_model:quantized:\(sourceRepo)") ||
+            Self.trustedGGUFOwners.contains(owner) {
+            return .trusted
+        }
+        return .community
+    }
+
+    func baseModelRepos(from model: [String: Any]) -> [String] {
+        var repos: [String] = []
+        let tags = model["tags"] as? [String] ?? []
+        for tag in tags where tag.hasPrefix("base_model:") {
+            var value = String(tag.dropFirst("base_model:".count))
+            if value.hasPrefix("quantized:") {
+                value = String(value.dropFirst("quantized:".count))
+            }
+            if value.hasPrefix("finetune:") {
+                continue
+            }
+            if value.split(separator: "/").count == 2 {
+                repos.append(value)
+            }
+        }
+
+        if let cardData = model["cardData"] as? [String: Any] {
+            if let baseModel = cardData["base_model"] as? String,
+               baseModel.split(separator: "/").count == 2 {
+                repos.append(baseModel)
+            } else if let baseModels = cardData["base_model"] as? [String] {
+                repos.append(contentsOf: baseModels.filter { $0.split(separator: "/").count == 2 })
+            }
+        }
+
+        return uniqueValues(repos)
+    }
+
+    private func modelId(from model: [String: Any]) -> String? {
+        model["modelId"] as? String ?? model["id"] as? String
+    }
+
+    private func repoOwner(_ repo: String) -> String {
+        repo.split(separator: "/", maxSplits: 1).first.map(String.init) ?? repo
+    }
+
+    private func repoName(_ repo: String) -> String {
+        repo.split(separator: "/", maxSplits: 1).last.map(String.init) ?? repo
+    }
+
+    private func uniqueValues(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
+    }
+
+    private func isSupportedMainGGUFFile(_ fileName: String) -> Bool {
+        let lowercased = fileName.lowercased()
+        guard lowercased.hasSuffix(".gguf") else { return false }
+        if lowercased.contains("mmproj") { return false }
+        if lowercased.hasPrefix("mtp/") { return false }
+        if lowercased.contains("/mtp/") { return false }
+        if lowercased.hasPrefix("mtp-") { return false }
+        if lowercased.contains("-mtp") { return false }
+        if Self.isSplitGGUFFile(lowercased) { return false }
+        return true
+    }
+
+    private func isSupportedByBundledRuntime(repo: String, remoteFileName: String, tags: [String]) -> Bool {
+        let markers = ([repo, remoteFileName] + tags).joined(separator: " ").lowercased()
+        if containsRuntimeMarker(markers, pattern: #"\bgemma-4\b"#) { return false }
+        if containsRuntimeMarker(markers, pattern: #"\bgemma4\b"#) { return false }
+        if containsRuntimeMarker(markers, pattern: #"\bgpt-oss\b"#) { return false }
+        return true
+    }
+
+    private func containsRuntimeMarker(_ markers: String, pattern: String) -> Bool {
+        markers.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    private func safeLocalFileName(repo: String, remoteFileName: String) -> String {
+        let safeRemote = remoteFileName
+            .replacingOccurrences(of: "/", with: "--")
+            .replacingOccurrences(of: ":", with: "-")
+        return "\(Self.sanitizedIdentifier(repo))--\(safeRemote)"
+    }
+
+    private func huggingFaceDownloadURL(repo: String, remoteFileName: String) -> String {
+        let encodedFile = remoteFileName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? remoteFileName
+        return "https://huggingface.co/\(repo)/resolve/main/\(encodedFile)"
+    }
+
+    private static let trustedGGUFOwners = [
+        "google",
+        "Qwen",
+        "unsloth",
+        "lmstudio-community",
+        "bartowski",
+        "MaziyarPanahi",
+        "mradermacher",
+        "QuantFactory",
+        "TheBloke",
+        "hugging-quants"
+    ]
+
+    private static func sanitizedIdentifier(_ value: String) -> String {
+        value.lowercased()
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
             .joined(separator: "-")
-        guard !sanitized.isEmpty else {
-            throw CatalogError.invalidURL(repo)
-        }
-        let modelId = "custom-\(sanitized)"
-        // Prefix fileName with sanitized repo to avoid on-disk collisions
-        let uniqueFileName = "\(sanitized)--\(fileName)"
-        let downloadURL = "https://huggingface.co/\(repo)/resolve/main/\(fileName)"
+    }
 
-        return LocalModel(
-            id: modelId,
-            name: repoName,
-            fileName: uniqueFileName,
-            downloadURL: downloadURL,
-            sizeBytes: 0,           // size unknown until download completes
-            description: "Custom model from \(repo)",
-            isBuiltIn: false
-        )
+    private static func normalizedForSearch(_ value: String) -> String {
+        value.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .joined()
+    }
+
+    private static func isSplitGGUFFile(_ lowercasedFileName: String) -> Bool {
+        lowercasedFileName.range(
+            of: #"-\d{5}-of-\d{5}\.gguf$"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private static func ggufFileRank(_ fileName: String) -> Int {
+        let lowercased = fileName.lowercased()
+        let preferred = [
+            "q4_k_m", "q4_0", "q5_k_m", "q5_k_s", "q6_k", "q8_0", "bf16", "f16", "q3_k_m", "q2_k"
+        ]
+        for (index, marker) in preferred.enumerated() where lowercased.contains(marker) {
+            return index
+        }
+        return 100
+    }
+
+    private static func quantizationLabel(from fileName: String) -> String {
+        let lowercased = fileName.lowercased()
+        let labels = [
+            "Q4_K_M", "Q4_0", "Q5_K_M", "Q5_K_S", "Q6_K", "Q8_0", "BF16", "F16", "Q3_K_M", "Q2_K"
+        ]
+        return labels.first { lowercased.contains($0.lowercased()) } ?? ""
     }
 
     // MARK: - Custom model persistence

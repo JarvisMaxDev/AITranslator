@@ -32,6 +32,7 @@ struct SettingsView: View {
     // Drafts for cancel/save
     @State private var draftConfigs: [ProviderConfig] = []
     @State private var draftSelectedProviderId: String? = nil
+    @State private var pendingRemovedProviderIds = Set<String>()
     @State private var hasChanges = false
     
     // Settings state
@@ -86,8 +87,7 @@ struct SettingsView: View {
                 HStack {
                     Spacer()
                     Button(NSLocalizedString("action.cancel", comment: "Cancel")) {
-                        draftConfigs = settingsViewModel.providerConfigs
-                        draftSelectedProviderId = settingsViewModel.selectedProviderId
+                        resetDraftsFromSettings()
                         hasChanges = false
                         dismiss()
                     }
@@ -109,13 +109,11 @@ struct SettingsView: View {
         .frame(width: 650, height: 540)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
-            draftConfigs = settingsViewModel.providerConfigs
-            draftSelectedProviderId = settingsViewModel.selectedProviderId
-            hasChanges = false
+            resetDraftsFromSettings()
         }
         .onChange(of: settingsViewModel.providerConfigs) { newConfigs in
             if !hasChanges {
-                draftConfigs = newConfigs
+                draftConfigs = draftConfigs(from: newConfigs)
             }
         }
         .onChange(of: settingsViewModel.selectedProviderId) { newId in
@@ -128,11 +126,9 @@ struct SettingsView: View {
         .sheet(isPresented: $showAPIKeyInput) { apiKeyInputSheet }
         .alert(NSLocalizedString("settings.restart_title", comment: ""), isPresented: $showRestartAlert) {
             Button(NSLocalizedString("settings.restart_now", comment: "")) {
-                let bundlePath = Bundle.main.bundlePath
-                let script = "sleep 0.5; open \"\(bundlePath)\""
                 let task = Process()
-                task.launchPath = "/bin/sh"
-                task.arguments = ["-c", script]
+                task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                task.arguments = ["-n", Bundle.main.bundlePath]
                 try? task.run()
                 NSApp.terminate(nil)
             }
@@ -143,14 +139,40 @@ struct SettingsView: View {
     }
 
     private func saveChanges() {
+        for id in pendingRemovedProviderIds {
+            settingsViewModel.removeProvider(id: id)
+        }
+        pendingRemovedProviderIds.removeAll()
+
         for draft in draftConfigs {
             settingsViewModel.updateProvider(draft)
         }
         if let id = draftSelectedProviderId {
             settingsViewModel.selectProvider(id: id)
         }
+        if let localConfig = draftConfigs.first(where: { $0.type == .local }),
+           let localModel = modelCatalog.models.first(where: { $0.id == localConfig.model }) {
+            modelCatalog.selectModel(localModel)
+        }
         hasChanges = false
         dismiss()
+    }
+
+    private func resetDraftsFromSettings() {
+        draftConfigs = draftConfigs(from: settingsViewModel.providerConfigs)
+        draftSelectedProviderId = settingsViewModel.selectedProviderId
+        pendingRemovedProviderIds.removeAll()
+        hasChanges = false
+    }
+
+    private func draftConfigs(from configs: [ProviderConfig]) -> [ProviderConfig] {
+        configs.map { config in
+            var draft = config
+            if draft.type == .local, let activeId = modelCatalog.activeModelId {
+                draft.model = activeId
+            }
+            return draft
+        }
     }
 
     // MARK: - Local Models Tab
@@ -415,11 +437,8 @@ struct SettingsView: View {
                     // Model Picker
                     Picker("", selection: Binding(
                         get: {
-                            // For local provider, the source of truth is ModelCatalog.activeModelId,
-                            // not config.model — fall back to whichever is non-empty.
-                            if config.type == .local,
-                               let activeId = modelCatalog.activeModelId {
-                                return activeId
+                            if let draft = draftConfigs.first(where: { $0.id == config.id }) {
+                                return draft.model
                             }
                             return config.model
                         },
@@ -427,12 +446,6 @@ struct SettingsView: View {
                             if let idx = draftConfigs.firstIndex(where: { $0.id == config.id }) {
                                 draftConfigs[idx].model = newModel
                                 hasChanges = true
-                            }
-                            // For local provider, also commit to the catalog so
-                            // LocalModelProvider (which reads catalog.activeModelId)
-                            // picks up the change immediately.
-                            if config.type == .local {
-                                settingsViewModel.selectLocalModel(id: newModel)
                             }
                         }
                     )) {
@@ -521,7 +534,7 @@ struct SettingsView: View {
                         }
 
                         Button(action: {
-                            settingsViewModel.removeProvider(id: config.id)
+                            pendingRemovedProviderIds.insert(config.id)
                             draftConfigs.removeAll { $0.id == config.id }
                             if draftSelectedProviderId == config.id {
                                 draftSelectedProviderId = draftConfigs.first?.id

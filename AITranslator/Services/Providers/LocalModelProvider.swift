@@ -9,8 +9,7 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
     let type: ProviderType = .local
 
     private let catalog: ModelCatalog
-    private var inference: LlamaInference?
-    private var loadedModelPath: String?
+    private let inferenceState = LocalModelProviderState()
 
     var isAuthenticated: Bool {
         // Check if a model is selected (persisted in UserDefaults)
@@ -20,6 +19,12 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
     init(config: ProviderConfig, catalog: ModelCatalog) {
         self.id = config.id
         self.catalog = catalog
+    }
+
+    deinit {
+        Task { [inferenceState] in
+            await inferenceState.unload()
+        }
     }
 
     func authenticate() async throws {
@@ -53,16 +58,7 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
             )
         }
 
-        // Load model on first use, or reload if model changed
-        if inference == nil || loadedModelPath != modelPath {
-            if inference != nil {
-                AppLogger.info("LocalModel", "Model changed, unloading previous...")
-                await inference?.unload()
-            }
-            AppLogger.info("LocalModel", "Loading model into memory...", details: model.name)
-            inference = try await LlamaInference(modelPath: modelPath)
-            loadedModelPath = modelPath
-        }
+        let inference = try await inferenceState.inference(for: modelPath, modelName: model.name)
 
         let systemPrompt = buildSystemPrompt(request: request)
 
@@ -71,9 +67,9 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
         let maxTokens = max(512, min(2048, Int(Double(estimatedInputTokens) * 1.5)))
 
         AppLogger.request("LocalModel", "Translating via \(model.name)",
-            details: "Text: \(request.sourceText.prefix(200))\(request.sourceText.count > 200 ? "..." : "")")
+            details: "Input length: \(request.sourceText.count) characters")
 
-        let result = try await inference!.generate(
+        let result = try await inference.generate(
             systemPrompt: systemPrompt,
             userPrompt: request.sourceText,
             temperature: 0.1,
@@ -83,7 +79,7 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
         let translatedText = Self.cleanModelOutput(result)
 
         AppLogger.response("LocalModel", "Translation complete",
-            details: "Result: \(translatedText.prefix(200))\(translatedText.count > 200 ? "..." : "")")
+            details: "Output length: \(translatedText.count) characters")
 
         return TranslationResponse(
             translatedText: translatedText,
@@ -92,25 +88,23 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
     }
 
     func unloadModel() async {
-        await inference?.unload()
-        inference = nil
+        await inferenceState.unload()
         AppLogger.info("LocalModel", "Model unloaded from memory")
     }
 
     // MARK: - Private
 
     /// Remove model-specific tags and post-process output to extract clean translation.
-    private static func cleanModelOutput(_ raw: String) -> String {
+    static func cleanModelOutput(_ raw: String) -> String {
         var text = raw
 
         // Remove Qwen3 thinking blocks: <think>...</think>
-        while let thinkStart = text.range(of: "<think>"),
-              let thinkEnd = text.range(of: "</think>") {
-            if thinkEnd.upperBound <= text.endIndex {
-                text.removeSubrange(thinkStart.lowerBound..<thinkEnd.upperBound)
-            } else {
+        while let thinkStart = text.range(of: "<think>") {
+            guard let thinkEnd = text.range(of: "</think>", range: thinkStart.upperBound..<text.endIndex) else {
+                text.removeSubrange(thinkStart.lowerBound..<text.endIndex)
                 break
             }
+            text.removeSubrange(thinkStart.lowerBound..<thinkEnd.upperBound)
         }
 
         // Remove common special tokens that leak into output
@@ -124,6 +118,24 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
         }
 
         text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let translationPrefixes = [
+            "Translation:",
+            "translation:",
+            "The translation is",
+            "Here is the translation",
+            "This translation is",
+            "This is the final translation"
+        ]
+        for prefix in translationPrefixes where text.hasPrefix(prefix) {
+            text.removeFirst(prefix.count)
+            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.hasPrefix(":") || text.hasPrefix("-") {
+                text.removeFirst()
+                text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            break
+        }
 
         // If model started explaining instead of just translating,
         // take only the first non-empty paragraph (the actual translation).
@@ -142,14 +154,14 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
             "If you need",
             "Let me know",
             "Feel free",
-            "Translation:",
-            "translation:",
         ]
 
         for marker in explanationMarkers {
             if let range = text.range(of: marker) {
-                text = String(text[text.startIndex..<range.lowerBound])
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if range.lowerBound != text.startIndex {
+                    text = String(text[text.startIndex..<range.lowerBound])
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                }
                 break
             }
         }
@@ -181,5 +193,80 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
         return """
         Translate from \(sourceLang) to \(targetLang). Output ONLY the translation, nothing else. No explanations.
         """
+    }
+}
+
+private actor LocalModelProviderState {
+    private var inference: LlamaInference?
+    private var loadedModelPath: String?
+    private var loadingTask: Task<LlamaInference, Error>?
+    private var loadingModelPath: String?
+
+    func inference(for modelPath: String, modelName: String) async throws -> LlamaInference {
+        if let inference, loadedModelPath == modelPath {
+            return inference
+        }
+
+        if let loadingTask, loadingModelPath == modelPath {
+            do {
+                let loaded = try await loadingTask.value
+                inference = loaded
+                loadedModelPath = modelPath
+                self.loadingTask = nil
+                loadingModelPath = nil
+                return loaded
+            } catch {
+                self.loadingTask = nil
+                loadingModelPath = nil
+                loadedModelPath = nil
+                throw error
+            }
+        }
+
+        if let loadingTask {
+            self.loadingTask = nil
+            loadingModelPath = nil
+            loadingTask.cancel()
+            if let loaded = try? await loadingTask.value {
+                await loaded.unload()
+            }
+        }
+
+        if let inference {
+            AppLogger.info("LocalModel", "Model changed, unloading previous...")
+            await inference.unload()
+        }
+
+        AppLogger.info("LocalModel", "Loading model into memory...", details: modelName)
+        let task = Task { try await LlamaInference(modelPath: modelPath) }
+        loadingTask = task
+        loadingModelPath = modelPath
+
+        do {
+            let loaded = try await task.value
+            inference = loaded
+            loadedModelPath = modelPath
+            loadingTask = nil
+            loadingModelPath = nil
+            return loaded
+        } catch {
+            loadingTask = nil
+            loadingModelPath = nil
+            loadedModelPath = nil
+            throw error
+        }
+    }
+
+    func unload() async {
+        let task = loadingTask
+        loadingTask = nil
+        loadingModelPath = nil
+        task?.cancel()
+        if let task, let loaded = try? await task.value {
+            await loaded.unload()
+        }
+        await inference?.unload()
+        inference = nil
+        loadedModelPath = nil
     }
 }

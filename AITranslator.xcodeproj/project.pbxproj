@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		018269E47D54E889B6997BE0 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD3D258398F8077485A06D3 /* ModelCatalog.swift */; };
+		13B9AF55DA16E68763C2C2B3 /* ModelCatalogGGUFResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E077D8E1F19B4926961E8C73 /* ModelCatalogGGUFResolverTests.swift */; };
 		241CEA15558392B8E64B53CA /* TranslatorViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132A987A14FB371A17A894D6 /* TranslatorViewModelTests.swift */; };
 		29AA8B454CBCCE4008D3CC72 /* LocalModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91BCC27D9D7F5892877530A7 /* LocalModelProvider.swift */; };
 		2B4ACCF0CC4440874ED43547 /* LlamaInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E770695CAEF1CC3709F533 /* LlamaInference.swift */; };
@@ -99,6 +100,7 @@
 		C2EF75F340398B77F6B9AB5D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		CB4BC329A4ED491EA56CE3A0 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
 		DAD3D258398F8077485A06D3 /* ModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalog.swift; sourceTree = "<group>"; };
+		E077D8E1F19B4926961E8C73 /* ModelCatalogGGUFResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalogGGUFResolverTests.swift; sourceTree = "<group>"; };
 		E2E770695CAEF1CC3709F533 /* LlamaInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaInference.swift; sourceTree = "<group>"; };
 		EAB91F217857DC697004B034 /* AnthropicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicProvider.swift; sourceTree = "<group>"; };
 		EE73E810F36FCA5EED918887 /* TTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSService.swift; sourceTree = "<group>"; };
@@ -290,6 +292,7 @@
 			children = (
 				4FDD2F5F836D4FCEC695BA2D /* ConstantsTests.swift */,
 				61F263DC2BF54BAA0C6E8490 /* LanguageTests.swift */,
+				E077D8E1F19B4926961E8C73 /* ModelCatalogGGUFResolverTests.swift */,
 				132A987A14FB371A17A894D6 /* TranslatorViewModelTests.swift */,
 			);
 			path = AITranslatorTests;
@@ -394,6 +397,7 @@
 			files = (
 				DC11D76D61915F34C90FFBA3 /* ConstantsTests.swift in Sources */,
 				6E63525434CAF904C14BCCA2 /* LanguageTests.swift in Sources */,
+				13B9AF55DA16E68763C2C2B3 /* ModelCatalogGGUFResolverTests.swift in Sources */,
 				241CEA15558392B8E64B53CA /* TranslatorViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -22,6 +22,10 @@
 "action.paste" = "Вставить";
 "action.cancel" = "Отмена";
 "action.save" = "Сохранить";
+"action.undo" = "Отменить";
+"action.redo" = "Повторить";
+"action.cut" = "Вырезать";
+"action.select_all" = "Выделить всё";
 
 /* Status */
 "status.no_provider" = "Провайдер не настроен";
@@ -106,4 +110,12 @@
 "settings.local_models" = "Локальные модели";
 "settings.local_models_description" = "Скачайте AI-модели для перевода без интернета. Модели побольше дают лучший перевод, но требуют больше места и оперативной памяти.";
 "settings.add_from_hf" = "Добавить с HuggingFace";
+"settings.find_gguf" = "Найти GGUF-файлы";
+"settings.searching_gguf" = "Ищу GGUF-файлы...";
+"settings.compatible_gguf" = "Совместимые GGUF-файлы";
+"settings.gguf_source.direct" = "Прямой";
+"settings.gguf_source.same_owner" = "Тот же автор";
+"settings.gguf_source.ggml" = "GGML";
+"settings.gguf_source.trusted" = "Доверенный";
+"settings.gguf_source.community" = "Community";
 "action.download" = "Скачать";

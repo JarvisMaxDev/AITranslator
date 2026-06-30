@@ -134,6 +134,9 @@ final class SettingsViewModel: ObservableObject {
                         token: tokens.accessToken, providerId: config.id)
                     fetchedModels[id] = models
                     AppLogger.info("Models", "Loaded \(models.count) Anthropic models")
+                } else if apiKey != nil {
+                    fetchedModels[id] = config.type.availableModels
+                    AppLogger.info("Models", "Loaded \(config.type.availableModels.count) Anthropic fallback models")
                 }
             case .openai:
                 let models = await ModelService.shared.fetchOpenAIModels(
@@ -370,8 +373,14 @@ final class SettingsViewModel: ObservableObject {
         if let data = try? JSONEncoder().encode(providerConfigs) {
             UserDefaults.standard.set(data, forKey: Constants.UserDefaultsKeys.providerConfigs)
         }
+        saveSelectedProviderId()
+    }
+
+    private func saveSelectedProviderId() {
         if let id = selectedProviderId {
             UserDefaults.standard.set(id, forKey: Constants.UserDefaultsKeys.selectedProviderId)
+        } else {
+            UserDefaults.standard.removeObject(forKey: Constants.UserDefaultsKeys.selectedProviderId)
         }
     }
 
@@ -395,5 +404,10 @@ final class SettingsViewModel: ObservableObject {
             }
         }
         selectedProviderId = UserDefaults.standard.string(forKey: Constants.UserDefaultsKeys.selectedProviderId)
+        if let selectedProviderId,
+           !providerConfigs.contains(where: { $0.id == selectedProviderId }) {
+            self.selectedProviderId = providerConfigs.first?.id
+            saveSelectedProviderId()
+        }
     }
 }

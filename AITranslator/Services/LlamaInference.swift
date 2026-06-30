@@ -7,6 +7,7 @@ enum LlamaInferenceError: LocalizedError {
     case modelLoadFailed(path: String)
     case contextCreationFailed
     case tokenizationFailed
+    case promptTooLong(tokenCount: Int, contextSize: UInt32)
     case decodeFailed(code: Int32)
     case notLoaded
     case utf8EncodingFailed
@@ -19,6 +20,8 @@ enum LlamaInferenceError: LocalizedError {
             return "Failed to create llama context"
         case .tokenizationFailed:
             return "Failed to tokenize prompt"
+        case .promptTooLong(let tokenCount, let contextSize):
+            return "Prompt is too long for local model context (\(tokenCount)/\(contextSize) tokens)"
         case .decodeFailed(let code):
             return "llama_decode returned error code \(code)"
         case .notLoaded:
@@ -94,6 +97,20 @@ actor LlamaInference {
 
         // Tokenize
         let tokens = try tokenize(prompt: prompt, vocab: vocab, addBos: true)
+        guard !tokens.isEmpty else {
+            throw LlamaInferenceError.tokenizationFailed
+        }
+
+        let remainingContext = Int(Self.defaultContextSize) - tokens.count
+        guard remainingContext > 0 else {
+            throw LlamaInferenceError.promptTooLong(
+                tokenCount: tokens.count,
+                contextSize: Self.defaultContextSize
+            )
+        }
+        let generationLimit = min(max(maxTokens, 0), remainingContext)
+        guard generationLimit > 0 else { return "" }
+
         AppLogger.info("LlamaInference", "Prompt tokenized", details: "\(tokens.count) tokens")
 
         // Clear memory (KV cache) so each call is independent
@@ -124,7 +141,7 @@ actor LlamaInference {
 
         // Generation loop
         var outputBytes: [UInt8] = []
-        outputBytes.reserveCapacity(maxTokens * 4)
+        outputBytes.reserveCapacity(generationLimit * 4)
 
         let eosToken = llama_vocab_eos(vocab)
         let eotToken = llama_vocab_eot(vocab)  // end-of-turn (Gemma uses this)
@@ -133,22 +150,26 @@ actor LlamaInference {
         var singleBatch = llama_batch_init(1, 0, 1)
         defer { llama_batch_free(singleBatch) }
 
-        for _ in 0 ..< maxTokens {
+        for _ in 0 ..< generationLimit {
             let nextToken = llama_sampler_sample(samplerChain, context, -1)
             llama_sampler_accept(samplerChain, nextToken)
 
             // Stop at EOS, end-of-turn, or any end-of-generation token
             if nextToken == eosToken || nextToken == eotToken || llama_vocab_is_eog(vocab, nextToken) { break }
 
-            // Skip control tokens (they shouldn't appear in output)
-            if llama_vocab_is_control(vocab, nextToken) { continue }
-
-            // Convert token to bytes
-            var tokenBytes = [CChar](repeating: 0, count: 32)
-            let byteCount = llama_token_to_piece(vocab, nextToken, &tokenBytes, 32, 0, false)
-            if byteCount > 0 {
-                for i in 0 ..< Int(byteCount) {
-                    outputBytes.append(UInt8(bitPattern: tokenBytes[i]))
+            // Control tokens must still be decoded into the KV cache; only hide
+            // them from the user-facing output bytes.
+            if !llama_vocab_is_control(vocab, nextToken) {
+                var tokenBytes = [CChar](repeating: 0, count: 32)
+                var byteCount = llama_token_to_piece(vocab, nextToken, &tokenBytes, Int32(tokenBytes.count), 0, false)
+                if byteCount < 0 {
+                    tokenBytes = [CChar](repeating: 0, count: Int(-byteCount))
+                    byteCount = llama_token_to_piece(vocab, nextToken, &tokenBytes, Int32(tokenBytes.count), 0, false)
+                }
+                if byteCount > 0 {
+                    for i in 0 ..< Int(byteCount) {
+                        outputBytes.append(UInt8(bitPattern: tokenBytes[i]))
+                    }
                 }
             }
 

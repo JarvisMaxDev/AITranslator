@@ -22,6 +22,10 @@
 "action.paste" = "Paste";
 "action.cancel" = "Cancel";
 "action.save" = "Save";
+"action.undo" = "Undo";
+"action.redo" = "Redo";
+"action.cut" = "Cut";
+"action.select_all" = "Select All";
 
 /* Status */
 "status.no_provider" = "No provider configured";
@@ -106,4 +110,12 @@
 "settings.local_models" = "Local Models";
 "settings.local_models_description" = "Download AI models for offline translation. Larger models produce better results but need more disk space and RAM.";
 "settings.add_from_hf" = "Add from HuggingFace";
+"settings.find_gguf" = "Find GGUF files";
+"settings.searching_gguf" = "Searching GGUF files...";
+"settings.compatible_gguf" = "Compatible GGUF files";
+"settings.gguf_source.direct" = "Direct";
+"settings.gguf_source.same_owner" = "Same owner";
+"settings.gguf_source.ggml" = "GGML";
+"settings.gguf_source.trusted" = "Trusted";
+"settings.gguf_source.community" = "Community";
 "action.download" = "Download";
