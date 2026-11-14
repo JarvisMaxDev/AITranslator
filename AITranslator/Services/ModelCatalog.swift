@@ -212,7 +212,6 @@ enum CatalogError: LocalizedError {
     case noGGUFFileFound(String)
     case noCompatibleGGUFFileFound(String)
     case onlyUnsupportedGGUFFilesFound(String)
-    case onlyRuntimeUnsupportedGGUFFilesFound(String)
     case invalidGGUFDownload(String)
     case delegateNotConfigured
     case downloadAlreadyInProgress
@@ -228,11 +227,9 @@ enum CatalogError: LocalizedError {
         case .noGGUFFileFound(let repo):
             return "No .gguf file found in repository: \(repo)"
         case .noCompatibleGGUFFileFound(let repo):
-            return "No compatible GGUF conversion found for: \(repo)"
+            return String(format: NSLocalizedString("error.local_no_gguf", value: "No GGUF model files found for %@.", comment: "Missing GGUF conversion"), repo)
         case .onlyUnsupportedGGUFFilesFound(let repo):
-            return "Only unsupported GGUF files were found for: \(repo). Split GGUF, mmproj, and MTP files are not supported yet."
-        case .onlyRuntimeUnsupportedGGUFFilesFound(let repo):
-            return "GGUF files were found for \(repo), but they require a newer local inference runtime than the bundled llama.cpp. Try Gemma 3 or Qwen GGUF for now."
+            return String(format: NSLocalizedString("error.local_unsupported_files", value: "No standalone text-model GGUF found for %@. Split files, mmproj and MTP cannot be loaded as a text model.", comment: "Unsupported GGUF files"), repo)
         case .invalidGGUFDownload(let fileName):
             return "Downloaded file is not a valid GGUF model: \(fileName)"
         case .delegateNotConfigured:
@@ -309,6 +306,33 @@ final class ModelCatalog: ObservableObject {
     // MARK: Built-in catalog
 
     private static let builtInModels: [LocalModel] = [
+        LocalModel(
+            id: "gemma-4-26b-a4b-q4",
+            name: "Gemma 4 26B-A4B-it Q4",
+            fileName: "gemma-4-26B-A4B-it-Q4_0.gguf",
+            downloadURL: "https://huggingface.co/ggml-org/gemma-4-26B-A4B-it-GGUF/resolve/1ca99aae748b4b01f609fa51eb23682ee5f00b85/gemma-4-26B-A4B-it-Q4_0.gguf",
+            sizeBytes: 14_618_145_824,
+            description: NSLocalizedString("settings.model_gemma4_26b", value: "Larger MoE model for nuanced translation. Recommended for Macs with 32+ GB RAM.", comment: "Gemma 4 26B description"),
+            isBuiltIn: true
+        ),
+        LocalModel(
+            id: "gemma-4-e4b-q4",
+            name: "Gemma 4 E4B-it Q4",
+            fileName: "gemma-4-E4B-it-Q4_0.gguf",
+            downloadURL: "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/8903cb408c7df39cde2ed15fac397e6d7be92951/gemma-4-E4B-it-Q4_0.gguf",
+            sizeBytes: 4_590_807_392,
+            description: NSLocalizedString("settings.model_gemma4_q4", value: "Instruction-tuned. Compact 4-bit model for local translation.", comment: "Gemma 4 Q4 description"),
+            isBuiltIn: true
+        ),
+        LocalModel(
+            id: "gemma-4-e4b-q8",
+            name: "Gemma 4 E4B-it Q8",
+            fileName: "gemma-4-E4B-it-Q8_0.gguf",
+            downloadURL: "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/8903cb408c7df39cde2ed15fac397e6d7be92951/gemma-4-E4B-it-Q8_0.gguf",
+            sizeBytes: 8_031_237_344,
+            description: NSLocalizedString("settings.model_gemma4_q8", value: "Higher precision, with more disk space and memory required.", comment: "Gemma 4 Q8 description"),
+            isBuiltIn: true
+        ),
         LocalModel(
             id: "gemma-3-1b",
             name: "Gemma 3 1B",
@@ -547,7 +571,6 @@ final class ModelCatalog: ObservableObject {
         let sourceModel = try await fetchHuggingFaceModel(repo: sourceRepo)
         var candidates: [GGUFModelCandidate] = []
         var unsupportedGGUFCount = 0
-        var runtimeUnsupportedGGUFCount = 0
 
         let baseRepos = baseModelRepos(from: sourceModel)
         let referenceRepos = uniqueValues([sourceRepo] + baseRepos)
@@ -560,7 +583,6 @@ final class ModelCatalog: ObservableObject {
         )
         candidates.append(contentsOf: direct.candidates)
         unsupportedGGUFCount += direct.unsupportedCount
-        runtimeUnsupportedGGUFCount += direct.runtimeUnsupportedCount
 
         if candidates.isEmpty {
             let reposToInspect = try await discoverGGUFRepos(
@@ -579,16 +601,12 @@ final class ModelCatalog: ObservableObject {
                 )
                 candidates.append(contentsOf: resolved.candidates)
                 unsupportedGGUFCount += resolved.unsupportedCount
-                runtimeUnsupportedGGUFCount += resolved.runtimeUnsupportedCount
             }
         }
 
         let sorted = sortedGGUFCandidates(candidates)
 
         if sorted.isEmpty {
-            if runtimeUnsupportedGGUFCount > 0 {
-                throw CatalogError.onlyRuntimeUnsupportedGGUFFilesFound(sourceRepo)
-            }
             if unsupportedGGUFCount > 0 {
                 throw CatalogError.onlyUnsupportedGGUFFilesFound(sourceRepo)
             }
@@ -840,7 +858,6 @@ final class ModelCatalog: ObservableObject {
     struct GGUFBuildResult {
         let candidates: [GGUFModelCandidate]
         let unsupportedCount: Int
-        let runtimeUnsupportedCount: Int
     }
 
     func buildGGUFCandidates(
@@ -865,7 +882,6 @@ final class ModelCatalog: ObservableObject {
         )
 
         var unsupportedCount = 0
-        var runtimeUnsupportedCount = 0
         let candidates: [GGUFModelCandidate] = siblings.compactMap { sibling in
             guard let remoteFileName = sibling["rfilename"] as? String,
                   remoteFileName.lowercased().hasSuffix(".gguf") else {
@@ -874,11 +890,6 @@ final class ModelCatalog: ObservableObject {
 
             guard isSupportedMainGGUFFile(remoteFileName) else {
                 unsupportedCount += 1
-                return nil
-            }
-
-            guard isSupportedByBundledRuntime(repo: repo, remoteFileName: remoteFileName, tags: tags) else {
-                runtimeUnsupportedCount += 1
                 return nil
             }
 
@@ -904,8 +915,7 @@ final class ModelCatalog: ObservableObject {
 
         return GGUFBuildResult(
             candidates: candidates,
-            unsupportedCount: unsupportedCount,
-            runtimeUnsupportedCount: runtimeUnsupportedCount
+            unsupportedCount: unsupportedCount
         )
     }
 
@@ -1019,24 +1029,13 @@ final class ModelCatalog: ObservableObject {
         let lowercased = fileName.lowercased()
         guard lowercased.hasSuffix(".gguf") else { return false }
         if lowercased.contains("mmproj") { return false }
+        if lowercased.hasPrefix("dflash-") || lowercased.contains("/dflash-") { return false }
         if lowercased.hasPrefix("mtp/") { return false }
         if lowercased.contains("/mtp/") { return false }
         if lowercased.hasPrefix("mtp-") { return false }
         if lowercased.contains("-mtp") { return false }
         if Self.isSplitGGUFFile(lowercased) { return false }
         return true
-    }
-
-    private func isSupportedByBundledRuntime(repo: String, remoteFileName: String, tags: [String]) -> Bool {
-        let markers = ([repo, remoteFileName] + tags).joined(separator: " ").lowercased()
-        if containsRuntimeMarker(markers, pattern: #"\bgemma-4\b"#) { return false }
-        if containsRuntimeMarker(markers, pattern: #"\bgemma4\b"#) { return false }
-        if containsRuntimeMarker(markers, pattern: #"\bgpt-oss\b"#) { return false }
-        return true
-    }
-
-    private func containsRuntimeMarker(_ markers: String, pattern: String) -> Bool {
-        markers.range(of: pattern, options: .regularExpression) != nil
     }
 
     private func safeLocalFileName(repo: String, remoteFileName: String) -> String {

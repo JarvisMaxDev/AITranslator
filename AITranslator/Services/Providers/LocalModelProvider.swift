@@ -60,23 +60,26 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
 
         let inference = try await inferenceState.inference(for: modelPath, modelName: model.name)
 
-        let systemPrompt = buildSystemPrompt(request: request)
-
-        // Adaptive max_tokens: use utf8 byte count for better CJK estimation
-        let estimatedInputTokens = request.sourceText.utf8.count / 4
-        let maxTokens = max(512, min(2048, Int(Double(estimatedInputTokens) * 1.5)))
+        let prompt = LocalTranslationPrompt(
+            text: request.sourceText,
+            sourceLanguage: request.sourceLanguage.code == "auto" ? "the auto-detected language" : request.sourceLanguage.name,
+            targetLanguage: request.targetLanguage.name
+        )
 
         AppLogger.request("LocalModel", "Translating via \(model.name)",
             details: "Input length: \(request.sourceText.count) characters")
 
         let result = try await inference.generate(
-            systemPrompt: systemPrompt,
-            userPrompt: request.sourceText,
-            temperature: 0.1,
-            maxTokens: maxTokens
+            systemPrompt: prompt.system,
+            userPrompt: prompt.user,
+            temperature: 0,
+            maxTokens: prompt.maxTokens
         )
 
         let translatedText = Self.cleanModelOutput(result)
+        guard !translatedText.isEmpty else {
+            throw AIProviderError.apiError(NSLocalizedString("error.local_no_translation", value: "The model did not produce a final translation. Try another instruction-tuned model or a shorter text.", comment: "Missing final model response"))
+        }
 
         AppLogger.response("LocalModel", "Translation complete",
             details: "Output length: \(translatedText.count) characters")
@@ -98,13 +101,26 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
     static func cleanModelOutput(_ raw: String) -> String {
         var text = raw
 
-        // Remove Qwen3 thinking blocks: <think>...</think>
-        while let thinkStart = text.range(of: "<think>") {
-            guard let thinkEnd = text.range(of: "</think>", range: thinkStart.upperBound..<text.endIndex) else {
-                text.removeSubrange(thinkStart.lowerBound..<text.endIndex)
-                break
+        // Harmony responses can contain analysis followed by a separate final
+        // message. Never expose analysis, including an interrupted response.
+        for channelToken in ["<|channel|>", "<|meta_sep|>"] where text.contains(channelToken) {
+            let messageToken = channelToken == "<|channel|>" ? "<|message|>" : "<|im_sep|>"
+            guard let final = text.range(of: channelToken + "final" + messageToken) else { return "" }
+            text = String(text[final.upperBound...])
+            if let end = text.range(of: "<|end|>") {
+                text = String(text[..<end.lowerBound])
             }
-            text.removeSubrange(thinkStart.lowerBound..<thinkEnd.upperBound)
+        }
+
+        // Remove explicit reasoning blocks before stripping control tokens.
+        for (start, end) in [("<think>", "</think>"), ("<|channel>thought", "<channel|>")] {
+            while let thinkStart = text.range(of: start) {
+                guard let thinkEnd = text.range(of: end, range: thinkStart.upperBound..<text.endIndex) else {
+                    text.removeSubrange(thinkStart.lowerBound..<text.endIndex)
+                    break
+                }
+                text.removeSubrange(thinkStart.lowerBound..<thinkEnd.upperBound)
+            }
         }
 
         // Remove common special tokens that leak into output
@@ -112,6 +128,9 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
             "<|im_start|>", "<|im_end|>",
             "<|endoftext|>", "<|end|>",
             "<start_of_turn>", "<end_of_turn>",
+            "<|turn>", "<turn|>", "<|channel>final", "<channel|>",
+            "<bos>", "<eos>",
+            "<|return|>", "<|fim_suffix|>",
         ]
         for pattern in junkPatterns {
             text = text.replacingOccurrences(of: pattern, with: "")
@@ -137,63 +156,11 @@ final class LocalModelProvider: AIProvider, @unchecked Sendable {
             break
         }
 
-        // If model started explaining instead of just translating,
-        // take only the first non-empty paragraph (the actual translation).
-        // Heuristic: if output contains English explanation after translation,
-        // the explanation usually starts with a sentence containing common words.
-        let explanationMarkers = [
-            "This text is already",
-            "This is the final",
-            "The translation is",
-            "Here is the translation",
-            "This translation is",
-            "The word ",
-            "The Russian ",
-            "Note:",
-            "I hope",
-            "If you need",
-            "Let me know",
-            "Feel free",
-        ]
-
-        for marker in explanationMarkers {
-            if let range = text.range(of: marker) {
-                if range.lowerBound != text.startIndex {
-                    text = String(text[text.startIndex..<range.lowerBound])
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                }
-                break
-            }
-        }
-
-        // Remove duplicate lines (some models repeat the translation)
-        let lines = text.components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        if lines.count >= 2 {
-            var seen = Set<String>()
-            var unique: [String] = []
-            for line in lines {
-                if seen.insert(line).inserted {
-                    unique.append(line)
-                }
-            }
-            text = unique.joined(separator: "\n")
-        }
-
+        // Paragraphs, repeated lines and phrases such as "Note:" or "I hope"
+        // can be part of the source. Never guess which translated prose to cut.
         return text
     }
 
-    private func buildSystemPrompt(request: TranslationRequest) -> String {
-        let sourceLang = request.sourceLanguage.code == "auto"
-            ? "auto-detected language"
-            : request.sourceLanguage.name
-        let targetLang = request.targetLanguage.name
-
-        return """
-        Translate from \(sourceLang) to \(targetLang). Output ONLY the translation, nothing else. No explanations.
-        """
-    }
 }
 
 private actor LocalModelProviderState {

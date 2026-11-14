@@ -70,6 +70,7 @@ final class ModelCatalogGGUFResolverTests: XCTestCase {
                 ["rfilename": "MTP/model.gguf"],
                 ["rfilename": "mtp-model.gguf"],
                 ["rfilename": "model-MTP.gguf"],
+                ["rfilename": "dflash-gemma-4-26B-A4B-it-Q8_0.gguf"],
                 ["rfilename": "config.json"]
             ],
             "downloads": 42,
@@ -84,13 +85,12 @@ final class ModelCatalogGGUFResolverTests: XCTestCase {
         )
 
         XCTAssertEqual(result.candidates.map(\.remoteFileName), ["model-Q4_0.gguf"])
-        XCTAssertEqual(result.unsupportedCount, 5)
-        XCTAssertEqual(result.runtimeUnsupportedCount, 0)
+        XCTAssertEqual(result.unsupportedCount, 6)
         XCTAssertEqual(result.candidates.first?.sourceKind, .sameOwner)
         XCTAssertEqual(result.candidates.first?.localFileName, "google-source-gguf--model-Q4_0.gguf")
     }
 
-    func testBuildGGUFCandidatesFiltersRuntimeUnsupportedArchitectures() {
+    func testBuildGGUFCandidatesDoesNotBlacklistSupportedArchitecturesByName() {
         let catalog = ModelCatalog()
 
         let gemma4 = catalog.buildGGUFCandidates(
@@ -106,10 +106,8 @@ final class ModelCatalogGGUFResolverTests: XCTestCase {
             referenceRepos: ["openai/gpt-oss-20b"]
         )
 
-        XCTAssertTrue(gemma4.candidates.isEmpty)
-        XCTAssertEqual(gemma4.runtimeUnsupportedCount, 1)
-        XCTAssertTrue(gptOSS.candidates.isEmpty)
-        XCTAssertEqual(gptOSS.runtimeUnsupportedCount, 1)
+        XCTAssertEqual(gemma4.candidates.map(\.remoteFileName), ["model-Q4_0.gguf"])
+        XCTAssertEqual(gptOSS.candidates.map(\.remoteFileName), ["model-Q4_0.gguf"])
     }
 
     func testBuildGGUFCandidatesKeepsRuntimeSupportedGemma3AndQwen() {
@@ -129,9 +127,7 @@ final class ModelCatalogGGUFResolverTests: XCTestCase {
         )
 
         XCTAssertEqual(gemma3.candidates.map(\.remoteFileName), ["model-Q4_0.gguf"])
-        XCTAssertEqual(gemma3.runtimeUnsupportedCount, 0)
         XCTAssertEqual(qwen.candidates.map(\.remoteFileName), ["model-Q4_0.gguf"])
-        XCTAssertEqual(qwen.runtimeUnsupportedCount, 0)
     }
 
     func testRuntimeFilterDoesNotRejectGemma4BSubstring() {
@@ -145,7 +141,6 @@ final class ModelCatalogGGUFResolverTests: XCTestCase {
         )
 
         XCTAssertEqual(result.candidates.map(\.remoteFileName), ["model-Q4_0.gguf"])
-        XCTAssertEqual(result.runtimeUnsupportedCount, 0)
     }
 
     func testRefreshStatesClearsActiveModelWhenFileIsMissing() throws {
@@ -214,6 +209,60 @@ final class ModelCatalogGGUFResolverTests: XCTestCase {
             LocalModelProvider.cleanModelOutput("</think> visible <think>hidden"),
             "</think> visible"
         )
+    }
+
+    func testGemma4PromptUsesDedicatedSystemTurnWithoutThinking() throws {
+        let prompt = try LlamaInference.formatChatPrompt(
+            template: "{{ bos_token }}<|turn>", architecture: "gemma4",
+            systemPrompt: "Translate to Russian.", userPrompt: "Hello"
+        )
+        XCTAssertEqual(prompt, "<|turn>system\nTranslate to Russian.<turn|>\n<|turn>user\nHello<turn|>\n<|turn>model\n")
+        XCTAssertFalse(prompt.contains("<|think|>"))
+        XCTAssertFalse(prompt.contains("<bos>"))
+    }
+
+    func testGemma3PromptMergesSystemIntoUserTurn() throws {
+        let prompt = try LlamaInference.formatChatPrompt(
+            template: "gemma", architecture: "gemma3",
+            systemPrompt: "Translate to Russian.", userPrompt: "Hello"
+        )
+        XCTAssertEqual(prompt, "<start_of_turn>user\nTranslate to Russian.\n\nHello<end_of_turn>\n<start_of_turn>model\n")
+    }
+
+    func testUnsupportedOrMissingTemplateDoesNotSilentlyUsePlainText() {
+        for template in [nil, "", "unsupported-template"] as [String?] {
+            XCTAssertThrowsError(try LlamaInference.formatChatPrompt(
+                template: template, architecture: "unknown",
+                systemPrompt: "Translate", userPrompt: "Hello"
+            ))
+        }
+    }
+
+    func testChatTemplatePreservesLongUnicodeInput() throws {
+        let source = String(repeating: "Привет 世界 👋\n", count: 200)
+        let prompt = try LlamaInference.formatChatPrompt(
+            template: "chatml", architecture: "qwen2",
+            systemPrompt: "Translate", userPrompt: source
+        )
+        XCTAssertTrue(prompt.contains(source))
+        XCTAssertTrue(prompt.hasSuffix("<|im_start|>assistant\n"))
+    }
+
+    func testLocalModelOutputRemovesGemma4ThinkingWithoutLosingAnswer() {
+        XCTAssertEqual(LocalModelProvider.cleanModelOutput("<|channel>thought\nprivate reasoning<channel|>Привет!<turn|>"), "Привет!")
+        XCTAssertEqual(LocalModelProvider.cleanModelOutput("<|channel>thought\nunfinished reasoning"), "")
+    }
+
+    func testLocalModelOutputPreservesParagraphsRepetitionAndEnglishPhrases() {
+        let text = "Thank you.\n\nThank you.\n\nNote: I hope this helps. Let me know if you need anything."
+        XCTAssertEqual(LocalModelProvider.cleanModelOutput(text), text)
+    }
+
+    func testLocalModelOutputKeepsOnlyHarmonyFinalChannel() {
+        XCTAssertEqual(LocalModelProvider.cleanModelOutput("<|channel|>analysis<|message|>reasoning<|end|><|start|>assistant<|channel|>final<|message|>Привет!<|return|>"), "Привет!")
+        XCTAssertEqual(LocalModelProvider.cleanModelOutput("<|channel|>final<|message|>Hello<|return|>"), "Hello")
+        XCTAssertEqual(LocalModelProvider.cleanModelOutput("<|channel|>analysis<|message|>unfinished reasoning"), "")
+        XCTAssertEqual(LocalModelProvider.cleanModelOutput("<|meta_sep|>analysis<|im_sep|>reasoning<|im_end|><|im_start|>assistant<|meta_sep|>final<|im_sep|>Hello<|fim_suffix|>"), "Hello")
     }
 
     func testSortedGGUFCandidatesPrefersGGMLOverCommunityForExactBaseModel() {

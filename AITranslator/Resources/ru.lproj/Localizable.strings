@@ -112,7 +112,16 @@
 "settings.add_from_hf" = "Добавить с HuggingFace";
 "settings.find_gguf" = "Найти GGUF-файлы";
 "settings.searching_gguf" = "Ищу GGUF-файлы...";
-"settings.compatible_gguf" = "Совместимые GGUF-файлы";
+"settings.compatible_gguf" = "Найденные GGUF-файлы — совместимость проверяется при загрузке модели";
+"settings.model_gemma4_q4" = "Обучена выполнять инструкции. Компактная 4-битная модель для перевода.";
+"settings.model_gemma4_26b" = "Более крупная MoE-модель для нюансов перевода. Рекомендуется Mac с 32+ ГБ памяти.";
+"settings.model_gemma4_q8" = "Более точное квантование, требует больше места и памяти.";
+"error.local_no_gguf" = "Не найдены GGUF-файлы модели для %@.";
+"error.local_unsupported_files" = "Для %@ не найден отдельный GGUF текстовой модели. Части многотомной модели, mmproj и MTP нельзя загрузить как текстовую модель.";
+"error.local_model_load" = "Не удалось загрузить модель %@. Возможные причины: повреждённый файл, нехватка памяти или неподдерживаемый формат. Подробности — в журнале движка.";
+"error.local_chat_template" = "Шаблон диалога этой модели пока не поддерживается. Выберите другую instruct-модель.";
+"error.local_no_translation" = "Модель не выдала итоговый перевод. Попробуйте другую instruct-модель или более короткий текст.";
+"settings.perm.unknown" = "Статус не определён";
 "settings.gguf_source.direct" = "Прямой";
 "settings.gguf_source.same_owner" = "Тот же автор";
 "settings.gguf_source.ggml" = "GGML";

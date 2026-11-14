@@ -18,7 +18,7 @@ settings:
 packages:
   LlamaSwift:
     url: https://github.com/mattt/llama.swift
-    from: "2.8665.0"
+    exactVersion: "2.10549.0"
 
 targets:
   AITranslator:

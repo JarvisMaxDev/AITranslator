@@ -12,6 +12,7 @@
 		241CEA15558392B8E64B53CA /* TranslatorViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132A987A14FB371A17A894D6 /* TranslatorViewModelTests.swift */; };
 		29AA8B454CBCCE4008D3CC72 /* LocalModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91BCC27D9D7F5892877530A7 /* LocalModelProvider.swift */; };
 		2B4ACCF0CC4440874ED43547 /* LlamaInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E770695CAEF1CC3709F533 /* LlamaInference.swift */; };
+		34AAE844FF0541728863D221 /* LocalTranslationPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54AAE844FF0541728863D221 /* LocalTranslationPrompt.swift */; };
 		3848751BC558022596D4F3AB /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220A2D33BE8B6110A90F23FB /* HotkeyRecorderView.swift */; };
 		3B14EDF6124F59357F55AA24 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 70DB81D2CFA95B4BE5EB22EE /* Localizable.strings */; };
 		40C02F386ECDB4CFA44ACAF5 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */; };
@@ -102,6 +103,7 @@
 		DAD3D258398F8077485A06D3 /* ModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalog.swift; sourceTree = "<group>"; };
 		E077D8E1F19B4926961E8C73 /* ModelCatalogGGUFResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalogGGUFResolverTests.swift; sourceTree = "<group>"; };
 		E2E770695CAEF1CC3709F533 /* LlamaInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaInference.swift; sourceTree = "<group>"; };
+		54AAE844FF0541728863D221 /* LocalTranslationPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTranslationPrompt.swift; sourceTree = "<group>"; };
 		EAB91F217857DC697004B034 /* AnthropicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicProvider.swift; sourceTree = "<group>"; };
 		EE73E810F36FCA5EED918887 /* TTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSService.swift; sourceTree = "<group>"; };
 		F7B8CA44233633035B73CB24 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -230,6 +232,7 @@
 				2BBE3F260492C0A776FE518B /* HotkeyService.swift */,
 				8A3B01A08A419F5D2D9A2B59 /* KeychainService.swift */,
 				E2E770695CAEF1CC3709F533 /* LlamaInference.swift */,
+				54AAE844FF0541728863D221 /* LocalTranslationPrompt.swift */,
 				DAD3D258398F8077485A06D3 /* ModelCatalog.swift */,
 				B555EE2B08A08539440FAB28 /* ModelService.swift */,
 				4B0A19BDB9AAF8E84B9F5E71 /* OCRService.swift */,
@@ -420,6 +423,7 @@
 				5241BEF9EB0EBEBE93ACBDA0 /* Language.swift in Sources */,
 				471698BA8E57239DE4314CFD /* LanguageSelectorView.swift in Sources */,
 				2B4ACCF0CC4440874ED43547 /* LlamaInference.swift in Sources */,
+				34AAE844FF0541728863D221 /* LocalTranslationPrompt.swift in Sources */,
 				FC27C2FD89E80D6782B93869 /* LocalCallbackServer.swift in Sources */,
 				29AA8B454CBCCE4008D3CC72 /* LocalModelProvider.swift in Sources */,
 				8AD78F403F8A0C48D9B63DE0 /* LocalModelSettingsView.swift in Sources */,
@@ -704,8 +708,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mattt/llama.swift";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.8665.0;
+				kind = exactVersion;
+				version = 2.10549.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

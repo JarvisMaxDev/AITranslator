@@ -18,8 +18,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
-        requestAccessibility()
-        startHotkey()
+        // Local model/UI checks do not need global keyboard capture. Ad-hoc
+        // debug signatures must not trigger a new Accessibility consent prompt.
+        #if DEBUG
+        let localModelCheck = ProcessInfo.processInfo.arguments.contains("--local-model-check")
+            || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
+        #else
+        let localModelCheck = false
+        #endif
+        if !localModelCheck {
+            requestAccessibility()
+            startHotkey()
+        }
 
         // Listen for settings open requests from TranslatorView gear button
         NotificationCenter.default.addObserver(
@@ -74,6 +85,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Window Management
+
+    #if DEBUG
+    /// Capture only this app's own rendered view; no Screen Recording access.
+    func saveModelCheckScreenshot() {
+        guard let view = NSApp.keyWindow?.contentView,
+              let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        guard let data = bitmap.representation(using: .png, properties: [:]) else { return }
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent("translator-model-check.png")
+        do {
+            try data.write(to: path)
+            AppLogger.info("LocalModelCheck", "Screenshot saved", details: path.path)
+        } catch {
+            AppLogger.error("LocalModelCheck", "Screenshot failed", details: error.localizedDescription)
+        }
+    }
+    #endif
 
     private func showMainWindow() {
         NSApp.activate(ignoringOtherApps: true)

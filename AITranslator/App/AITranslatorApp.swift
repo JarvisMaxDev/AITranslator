@@ -35,6 +35,15 @@ struct AITranslatorApp: App {
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
+            #if DEBUG
+            CommandGroup(after: .appInfo) {
+                if ProcessInfo.processInfo.arguments.contains("--local-model-check") {
+                    Button("Save Model Check Screenshot") {
+                        appDelegate.saveModelCheckScreenshot()
+                    }
+                }
+            }
+            #endif
             CommandGroup(replacing: .undoRedo) {
                 Button(NSLocalizedString("action.undo", comment: "Undo")) {
                     translatorViewModel.undo()

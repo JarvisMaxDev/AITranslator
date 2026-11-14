@@ -1,6 +1,7 @@
 import SwiftUI
 import Carbon.HIToolbox
 import ServiceManagement
+import CoreServices
 
 struct SettingsView: View {
     @EnvironmentObject var settingsViewModel: SettingsViewModel
@@ -204,7 +205,8 @@ struct SettingsView: View {
     // MARK: - General Tab
 
     @State private var accessibilityGranted = AXIsProcessTrusted()
-    @State private var automationGranted = false
+    @State private var automationGranted: Bool?
+    @State private var isCheckingAutomation = false
     @State private var launchAtLogin: Bool = {
         if #available(macOS 13.0, *) {
             return SMAppService.mainApp.status == .enabled
@@ -322,10 +324,10 @@ struct SettingsView: View {
         .frame(maxHeight: .infinity)
     }
 
-    private func permissionRow(name: String, description: String, granted: Bool, action: @escaping () -> Void) -> some View {
+    private func permissionRow(name: String, description: String, granted: Bool?, action: @escaping () -> Void) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: granted ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(granted ? .green : .red)
+            Image(systemName: granted == true ? "checkmark.circle.fill" : granted == false ? "xmark.circle.fill" : "questionmark.circle")
+                .foregroundStyle(granted == true ? Color.green : granted == false ? Color.red : Color.secondary)
                 .font(.title3)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -338,24 +340,40 @@ struct SettingsView: View {
 
             Spacer()
 
-            if !granted {
+            if granted == false {
                 Button(NSLocalizedString("settings.perm.open_settings", comment: "Open Settings")) {
                     action()
                 }
                 .controlSize(.small)
+            } else if granted == nil {
+                Text(NSLocalizedString("settings.perm.unknown", comment: "Permission status unknown"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
 
     private func refreshPermissions() {
         accessibilityGranted = AXIsProcessTrusted()
-        // Check Automation by trying a harmless AppleScript
-        let script = NSAppleScript(source: """
-            tell application "System Events" to return name of first process
-        """)
-        var errorInfo: NSDictionary?
-        script?.executeAndReturnError(&errorInfo)
-        automationGranted = (errorInfo == nil)
+        guard !isCheckingAutomation else { return }
+        isCheckingAutomation = true
+        Task {
+            // Query consent without sending an event or showing a permission
+            // dialog. Never synchronously call System Events from the UI thread.
+            let status = await Task.detached {
+                let target = NSAppleEventDescriptor(bundleIdentifier: "com.apple.systemevents")
+                return AEDeterminePermissionToAutomateTarget(
+                    target.aeDesc, typeWildCard, typeWildCard, false
+                )
+            }.value
+            // procNotFound (System Events is not running) is not a denial.
+            switch status {
+            case OSStatus(noErr): automationGranted = true
+            case OSStatus(errAEEventNotPermitted), OSStatus(errAEEventWouldRequireUserConsent): automationGranted = false
+            default: automationGranted = nil
+            }
+            isCheckingAutomation = false
+        }
     }
 
     // MARK: - Providers Tab
